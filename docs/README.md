@@ -51,7 +51,7 @@ We will try to realize the potential of parallelism in this algorithm to make ge
 ## Resources
 
 * There are several existing sequential versions of Delaunay Triangulation, like the one [here](https://github.com/Bl4ckb0ne/delaunay-triangulation).
-* There are some former attempts to parallelize Delaunay Triangulation, like https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf which uses OpenMPI to parallelize the algorithm. However, we think using OpenMP should be more efficient than using OpenMPI. 
+* There are some former attempts to parallelize Delaunay Triangulation, like [https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf](https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf) which uses OpenMPI to parallelize the algorithm. However, we think using OpenMP should be more efficient than using OpenMPI. 
 * There are also some discussions on [Zhihu](https://www.zhihu.com/question/29856775) (Chinese) about making better looking outputs.
 
 
