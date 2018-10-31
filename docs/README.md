@@ -1,10 +1,10 @@
-# Parallel Low-Poly Style Image Converter
+# Parallel Low Poly Style Image Converter
 
 at: https://darkforte.github.io/LowPoly/
 
 ## Summary
 
-We are going to implement a parallel low-poly style image converter with OpenMP or CUDA. It accepts an input image and transforms it into a low-poly style one.
+We are going to implement a parallel low poly style image converter with OpenMP or CUDA. It accepts an input image and transforms it into a low poly style one.
 
 ## Background
 
@@ -19,6 +19,7 @@ A popular method to convert a picture to low poly style is called [Delaunay Tria
 ```
 Input: A set of points on the plane.
 Output: A set of non-overlapping triangles
+```
 
 1. Add 3 points out of the image plane and connect them into a huge triangle which contains all the points in the image plane.
 
@@ -29,17 +30,16 @@ Output: A set of non-overlapping triangles
 4. Separate the surrounding triangle into 3 smaller triangles using the new point.
 
 5. Draw the circumcircles of the new triangles. Notice that we can divide each quadrilateral into triangles in two ways:
-	If the other point of the quadrilateral locates inside the sphere, we switch to the other way of dividing the quadrilateral. 
-    If it is outside the sphere, then we keep it.
+  * If the other point of the quadrilateral locates inside the sphere, we switch to the other way of dividing the quadrilateral. 
+  * If it is outside the sphere, then we keep it.
 
 6. Go back to step 2, until no more points are to be selected.
-```
 
 ![Delaunay Workflow](delaunay-workflow.png)
 
-This algorithm is known to be compute-intensive, but it has some potential to be parallelized. For example, points at different parts may be computed at the same time, and testing which triangle a point is in may also be parallelized. Also, the rendering process after triangulation seems perfect for CUDA.
+This algorithm is known to be compute-intensive, but it has some potential to be parallelized. For example, points at different parts may be computed at the same time, and testing which triangle a point is in may also be parallelized. 
 
-We will try to realize the potential of parallelism in this algorithm to make generating low-poly style images faster.
+We will try to realize the potential of parallelism in this algorithm to make generating low poly style images faster.
 
 ## Challenges
 
