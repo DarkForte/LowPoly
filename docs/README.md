@@ -60,18 +60,18 @@ We will try to realize the potential of parallelism in this algorithm to make ge
 
 ### Expected Goals (Plan to achieve):
 
-* Make a program that loads a picture from disk or camera, spread random points, triangulate the image, and shows the lo poly style image on the screen. 
+* Make a program that loads a picture from disk or camera, spread random points, triangulate the image, and shows the low poly style image on the screen. 
 * Detect edges in images using existing libraries and spread more points on edges to make outputs better looking.
-* Accelerate the algorithm by 2 or more times.
+* Achieve 2x or better speedup.
 
 ### Minimum Goals:
 
-* Finish the parallel version of Delaunay Triangulation and achieve at least 2 times speed up.
+* Finish the parallel version of Delaunay Triangulation and achieve at least 2x speed up.
 * Finish image input/output features so that have displayable demos.
 * May not be able to achieve real-time speed.
 * May not use edge detection.
 
-### Ideal Goals:
+### Ideal Goals (Hope to achieve):
 
 * Make a real-time triangulation converter, which captures video by camera and shows the triangulated video in a separate window.
 * Or, we can build a webpage that allows user to upload their image and generate customizable(number of points etc.) low poly outputs in near realtime.
