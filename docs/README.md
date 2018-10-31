@@ -60,22 +60,25 @@ We will try to realize the potential of parallelism in this algorithm to make ge
 
 ### Expected Goals (Plan to achieve):
 
-* Make a program that loads a picture from disk or camera, and shows the triangulated one on the screen. 
-* It should contain the edge detector to make outputs better looking.
-* It may not be real-time.
+* Make a program that loads a picture from disk or camera, spread random points, triangulate the image, and shows the lo poly style image on the screen. 
+* Detect edges in images using existing libraries and spread more points on edges to make outputs better looking.
+* Accelerate the algorithm by 2 or more times.
 
 ### Minimum Goals:
 
-* Finish the parallel version of Delaunay Triangulation and image input/output features only, without an edge detector. 
+* Finish the parallel version of Delaunay Triangulation and achieve at least 2 times speed up.
+* Finish image input/output features so that have displayable demos.
+* May not be able to achieve real-time speed.
+* May not use edge detection.
 
 ### Ideal Goals:
 
-* Make a real-time triangulation converter, which captures video by computer camera and shows the triangulated video in a separate window.
-* Or, we can build a webpage that allows user to adjust parameters and generates the output interactively.
+* Make a real-time triangulation converter, which captures video by camera and shows the triangulated video in a separate window.
+* Or, we can build a webpage that allows user to upload their image and generate customizable(number of points etc.) low poly outputs in near realtime.
 
 ## Platform Choice
 
-We are planning to use GHC machines for experiments, and we are planning to use C++ for development and OpenCV for some helpers like displaying images on the screen.
+We are planning to use GHC machines for experiments, and we are planning to use C++ for development and OpenCV for some helpers like reading images and displaying images on the screen.
 
 ## Schedule
 
