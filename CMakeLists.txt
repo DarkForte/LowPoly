@@ -6,4 +6,4 @@ cmake_minimum_required (VERSION 2.8)
 project ("LowPoly")
 
 # Include sub-projects.
-add_subdirectory ("LowPoly")
+add_subdirectory ("src")
