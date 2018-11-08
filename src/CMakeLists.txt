@@ -13,5 +13,6 @@ file(GLOB LowPoly_src
 
 add_executable(LowPoly ${LowPoly_src})
 TARGET_LINK_LIBRARIES(LowPoly opencv_core opencv_highgui opencv_imgcodecs opencv_imgproc)
+#target_link_libraries( LowPoly ${OpenCV_LIBS} )
 
 # TODO: Add tests and install targets if needed.
