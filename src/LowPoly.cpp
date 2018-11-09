@@ -11,6 +11,7 @@
 #include "point.h"
 #include "LowPoly.h"
 #include "delauneyCPU.h"
+#include "triangle.h"
 
 using namespace std;
 
@@ -83,8 +84,8 @@ vector<Point> InputFromFile(char* filePath, int &numVertices, int &rows, int &co
     int i;
     for(int i=1; i<=numVertices; i++)
     {
-        int y, x;
-        cin>>y>>x;
+        int x, y;
+        cin>>x>>y;
         ret.emplace_back(x, y);
     }
     return ret;
@@ -180,13 +181,23 @@ int main(int argc, char **argv)
 
     vector<int> owner(rows * cols, -1);
 
-    DelauneyCPU(vertices, owner, rows, cols);
+    vector<Triangle> triangles = DelauneyCPU(vertices, owner, rows, cols);
+
 
     for(int i=0; i<rows; i++)
     {
         for(int j=0; j<cols; j++)
         {
             cout<<owner[i * cols + j]<<" ";
+        }
+        cout<<endl;
+    }
+
+    for(Triangle triangle: triangles)
+    {
+        for(int i=0; i<=2; i++)
+        {
+            cout<<triangle.points[i].x <<" "<<triangle.points[i].y<<"; ";
         }
         cout<<endl;
     }

@@ -23,3 +23,8 @@ Point operator * (const Point &a, int b)
 {
     return Point(a.x * b, a.y * b);
 }
+
+Point operator / (const Point &a, int b)
+{
+    return Point(a.x / b, a.y / b);
+}

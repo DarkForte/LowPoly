@@ -1,7 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <unordered_set>
 #include "point.h"
+#include "triangle.h"
 
 using namespace std;
 
@@ -27,7 +29,7 @@ inline int Index(Point p, int col)
     return p.y * col + p.x;
 }
 
-void DelauneyCPU(vector<Point> &seeds, vector<int> &owner, int rows, int cols)
+vector<Triangle> DelauneyCPU(vector<Point> &seeds, vector<int> &owner, int rows, int cols)
 {
     int start_stepsize = NextPower2(min(rows, cols)) / 2;
 
@@ -67,6 +69,45 @@ void DelauneyCPU(vector<Point> &seeds, vector<int> &owner, int rows, int cols)
         }
     }
 
+    vector<Triangle> triangles;
     const Point neighbor_dir[] = {Point(1, 0), Point(0, 1), Point(1, 1)};
+    for(int r=0; r < rows - 1; r++)
+    {
+        for(int c=0; c<cols -1 ; c++)
+        {
+            Point now_point(c, r);
+            unordered_set<int> colors;
+            colors.insert(owner[Index(now_point, cols)]);
+            for(Point now_dir: neighbor_dir)
+            {
+                Point next_point = now_point + now_dir;
+                colors.insert(owner[Index(next_point, cols)]);
+            }
 
+            if(colors.size() == 3)
+            {
+                Triangle triangle;
+                int p = 0;
+                for(int index: colors)
+                    triangle.points[p++] = seeds[index];
+
+                triangles.push_back(triangle);
+            }
+            else if(colors.size() == 4)
+            {
+                Triangle triangle1(seeds[owner[Index(now_point, cols)]],
+                                   seeds[owner[Index(now_point + Point(1, 0), cols)]],
+                                   seeds[owner[Index(now_point + Point(0, 1), cols)]]);
+
+                Triangle triangle2(seeds[owner[Index(now_point + Point(1, 0), cols)]],
+                                   seeds[owner[Index(now_point + Point(0, 1), cols)]],
+                                   seeds[owner[Index(now_point + Point(1, 1), cols)]]);
+
+                triangles.push_back(triangle1);
+                triangles.push_back(triangle2);
+            }
+        }
+    }
+
+    return triangles;
 }
