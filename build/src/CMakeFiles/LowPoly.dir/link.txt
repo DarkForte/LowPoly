@@ -1,0 +1,1 @@
+/usr/lib64/ccache/c++    -std=gnu++11 -g -O0    CMakeFiles/LowPoly.dir/LowPoly.cpp.o  -o ../LowPoly  -L/afs/andrew.cmu.edu/usr23/zhengjih/softwares/opencv-3.4.1/install/lib64 -rdynamic -lopencv_core -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -Wl,-rpath,/afs/andrew.cmu.edu/usr23/zhengjih/softwares/opencv-3.4.1/install/lib64 

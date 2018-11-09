@@ -91,10 +91,9 @@ vector<Point> InputFromFile(char* filePath, int &numVertices, int &rows, int &co
     return ret;
 }
 
-vector<Point> InputFromImage(char* imgPath, int numVertices, int &rows, int &cols, float edgePortion, float edgeThresh)
+vector<Point> InputFromImage(char* imgPath, int numVertices, int &rows, int &cols, cv::Mat& img, float edgePortion, float edgeThresh)
 {
     // Read image, set rows and cols
-    cv::Mat img;
     img = cv::imread(imgPath);
     if (!img.data)
     {
@@ -141,12 +140,89 @@ vector<Point> InputFromImage(char* imgPath, int numVertices, int &rows, int &col
     return vertices;
 }
 
+void drawVoronoi(vector<int>& owner, int rows, int cols, int numVertices)
+{
+    cv::Mat voronoi = cv::Mat(rows, cols, CV_8UC3, cv::Scalar(0,0,0));
+    vector<cv::Vec3b> rgbMap(numVertices);
+
+    for (int i = 0; i < numVertices; i++)
+    {
+    rgbMap[i][0] = rand() % 256;
+    rgbMap[i][1] = rand() % 256;
+    rgbMap[i][2] = rand() % 256;
+    }
+
+    for(int i=0; i<rows; i++)
+    {
+        for(int j=0; j<cols; j++)
+        {
+            voronoi.at<cv::Vec3b>(i, j) = rgbMap[owner[i * cols + j]];
+        }
+    }
+    // write to image
+    cv::imwrite("voronoi.png", voronoi);
+}
+
+// code from https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
+int sign (Point p1, Point p2, Point p3)
+{
+    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+}
+
+bool PointInTriangle (Point pt, Point v1, Point v2, Point v3)
+{
+    int d1, d2, d3;
+    bool has_neg, has_pos;
+
+    d1 = sign(pt, v1, v2);
+    d2 = sign(pt, v2, v3);
+    d3 = sign(pt, v3, v1);
+
+    has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+    return !(has_neg && has_pos);
+}
+
+void drawTriangle(vector<Triangle>& triangles, cv::Mat& img)
+{
+    int rows = img.rows;
+    int cols = img.cols;
+    cv::Mat triImg = cv::Mat(rows, cols, CV_8UC3, cv::Scalar(0,0,0));
+    for (Triangle tri: triangles)
+    {
+        Point p = tri.center();
+        int minX = min(tri.points[0].x, tri.points[1].x);
+        minX = min(minX, tri.points[2].x);
+        int minY = min(tri.points[0].y, tri.points[1].y);
+        minY = min(minX, tri.points[2].y);    
+        int maxX = max(tri.points[0].x, tri.points[1].x);
+        maxX = max(maxX, tri.points[2].x);
+        int maxY = max(tri.points[0].y, tri.points[1].y);
+        maxY = max(maxY, tri.points[2].y);  
+        for(int i=minY; i<=maxY; i++)
+        {
+            for(int j=minX; j<=maxX; j++)
+            {
+                Point pt;
+                pt.x = j;
+                pt.y = i;
+                if (PointInTriangle(pt, tri.points[0], tri.points[1], tri.points[2]))     
+                    triImg.at<cv::Vec3b>(i, j) = img.at<cv::Vec3b>(p.y, p.x);                    
+            }
+        }        
+    }
+    // wirte to image
+    cv::imwrite("triangle.png", triImg);
+}
+
 int main(int argc, char **argv)
 {
     vector<Point> vertices;
     int rows, cols;
 
     char *imgPath;
+    cv::Mat img;
     int numVertices = 500;
     float edgePortion = 0.8; // percentage of points being on edge
     float edgeThresh = 0.1; // threshold for a point being an edge
@@ -175,7 +251,7 @@ int main(int argc, char **argv)
                     cout << "Unrecognized argument: " << opt;
             }
 
-            vertices = InputFromImage(imgPath, numVertices, rows, cols, edgePortion, edgeThresh);
+            vertices = InputFromImage(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
         }
     }
 
@@ -183,24 +259,27 @@ int main(int argc, char **argv)
 
     vector<Triangle> triangles = DelauneyCPU(vertices, owner, rows, cols);
 
+    drawVoronoi(owner, rows, cols, numVertices);
 
-    for(int i=0; i<rows; i++)
-    {
-        for(int j=0; j<cols; j++)
-        {
-            cout<<owner[i * cols + j]<<" ";
-        }
-        cout<<endl;
-    }
+    drawTriangle(triangles, img);
 
-    for(Triangle triangle: triangles)
-    {
-        for(int i=0; i<=2; i++)
-        {
-            cout<<triangle.points[i].x <<" "<<triangle.points[i].y<<"; ";
-        }
-        cout<<endl;
-    }
+    // for(int i=0; i<rows; i++)
+    // {
+    //     for(int j=0; j<cols; j++)
+    //     {
+    //         cout<<owner[i * cols + j]<<" ";
+    //     }
+    //     cout<<endl;
+    // }
+
+    // for(Triangle triangle: triangles)
+    // {
+    //     for(int i=0; i<=2; i++)
+    //     {
+    //         cout<<triangle.points[i].x <<" "<<triangle.points[i].y<<"; ";
+    //     }
+    //     cout<<endl;
+    // }
 
     return 0;
 }
