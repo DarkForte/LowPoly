@@ -75,44 +75,33 @@ vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float
     return vertices;
 }
 
-
-int main(int argc, char **argv)
+vector<Point> InputFromFile(char* filePath, int &numVertices, int &rows, int &cols)
 {
-    char *imgPath;
-    int numVertices = 500;
-    float edgePortion = 0.8; // percentage of points being on edge
-    float edgeThresh = 0.1; // threshold for a point being an edge
-
-    // parse inputs
-    int opt;
-    while ((opt = getopt(argc, argv, "i:v:e:")) != -1)
+    freopen(filePath, "r", stdin);
+    vector<Point> ret;
+    cin>>numVertices>>rows>>cols;
+    int i;
+    for(int i=1; i<=numVertices; i++)
     {
-        switch (opt)
-        {
-            case 'i':
-                imgPath = optarg;
-                break;
-            case 'v':
-                numVertices = atoi(optarg);
-                break;
-            case 'e':
-                edgePortion = atof(optarg);
-                break;
-            default:
-                cout << "Unrecognized argument: " << opt;
-        }
+        int y, x;
+        cin>>y>>x;
+        ret.emplace_back(x, y);
     }
+    return ret;
+}
 
+vector<Point> InputFromImage(char* imgPath, int numVertices, int &rows, int &cols, float edgePortion, float edgeThresh)
+{
     // Read image, set rows and cols
     cv::Mat img;
     img = cv::imread(imgPath);
     if (!img.data)
     {
         printf("Error loading image %s\n", imgPath);
-        return -1;
+        exit(-1);
     }
-    int rows = img.rows;
-    int cols = img.cols;
+    rows = img.rows;
+    cols = img.cols;
     int numPixel = rows * cols;
 
     // get grad (edge)
@@ -148,9 +137,59 @@ int main(int argc, char **argv)
     cv::Mat edges = grad * 255.0;
     cv::imwrite("edges.png", edges);
 
+    return vertices;
+}
+
+int main(int argc, char **argv)
+{
+    vector<Point> vertices;
+    int rows, cols;
+
+    char *imgPath;
+    int numVertices = 500;
+    float edgePortion = 0.8; // percentage of points being on edge
+    float edgeThresh = 0.1; // threshold for a point being an edge
+    // parse inputs
+    int opt;
+    while ((opt = getopt(argc, argv, "f:i:v:e:")) != -1)
+    {
+        if(opt == 'f')
+        {
+            vertices = InputFromFile(optarg, numVertices, rows, cols);
+        }
+        else
+        {
+            switch (opt)
+            {
+                case 'i':
+                    imgPath = optarg;
+                    break;
+                case 'v':
+                    numVertices = atoi(optarg);
+                    break;
+                case 'e':
+                    edgePortion = atof(optarg);
+                    break;
+                default:
+                    cout << "Unrecognized argument: " << opt;
+            }
+
+            vertices = InputFromImage(imgPath, numVertices, rows, cols, edgePortion, edgeThresh);
+        }
+    }
+
     vector<int> owner(rows * cols, -1);
 
     DelauneyCPU(vertices, owner, rows, cols);
+
+    for(int i=0; i<rows; i++)
+    {
+        for(int j=0; j<cols; j++)
+        {
+            cout<<owner[i * cols + j]<<" ";
+        }
+        cout<<endl;
+    }
 
     return 0;
 }
