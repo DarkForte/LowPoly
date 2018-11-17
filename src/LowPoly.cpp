@@ -195,7 +195,7 @@ void drawTriangle(vector<Triangle>& triangles, cv::Mat& img)
         int minX = min(tri.points[0].x, tri.points[1].x);
         minX = min(minX, tri.points[2].x);
         int minY = min(tri.points[0].y, tri.points[1].y);
-        minY = min(minX, tri.points[2].y);    
+        minY = min(minY, tri.points[2].y);
         int maxX = max(tri.points[0].x, tri.points[1].x);
         maxX = max(maxX, tri.points[2].x);
         int maxY = max(tri.points[0].y, tri.points[1].y);
@@ -212,7 +212,8 @@ void drawTriangle(vector<Triangle>& triangles, cv::Mat& img)
             }
         }        
     }
-    // wirte to image
+
+    // write to image
     cv::imwrite("triangle.png", triImg);
 }
 
@@ -223,7 +224,7 @@ int main(int argc, char **argv)
 
     char *imgPath;
     cv::Mat img;
-    int numVertices = 500;
+    int numVertices = 1000;
     float edgePortion = 0.8; // percentage of points being on edge
     float edgeThresh = 0.1; // threshold for a point being an edge
     // parse inputs
