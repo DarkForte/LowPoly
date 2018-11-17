@@ -4,6 +4,14 @@
 src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o
  /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/LowPoly.cpp
  /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/LowPoly.h
- /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauneyCPU.h
+ /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/cvutil.h
+ /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauney.h
  /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
  /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
+ /usr/local/depot/cuda-8.0/include/cuda.h
+src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o
+ /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauney.h
+ /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauneyCPU.cpp
+ /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
+ /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
+ /usr/local/depot/cuda-8.0/include/cuda.h

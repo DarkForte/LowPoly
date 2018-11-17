@@ -77,7 +77,7 @@ src/preinstall:
 src/CMakeFiles/LowPoly.dir/all:
 	$(MAKE) -f src/CMakeFiles/LowPoly.dir/build.make src/CMakeFiles/LowPoly.dir/depend
 	$(MAKE) -f src/CMakeFiles/LowPoly.dir/build.make src/CMakeFiles/LowPoly.dir/build
-	$(CMAKE_COMMAND) -E cmake_progress_report /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/CMakeFiles  1
+	$(CMAKE_COMMAND) -E cmake_progress_report /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/CMakeFiles  1 2 3 4 5
 	@echo "Built target LowPoly"
 .PHONY : src/CMakeFiles/LowPoly.dir/all
 
@@ -87,7 +87,7 @@ all: src/CMakeFiles/LowPoly.dir/all
 
 # Build rule for subdir invocation for target.
 src/CMakeFiles/LowPoly.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/CMakeFiles 1
+	$(CMAKE_COMMAND) -E cmake_progress_start /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/CMakeFiles 5
 	$(MAKE) -f CMakeFiles/Makefile2 src/CMakeFiles/LowPoly.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/CMakeFiles 0
 .PHONY : src/CMakeFiles/LowPoly.dir/rule

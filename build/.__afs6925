@@ -410,7 +410,7 @@ CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 CUDA_64_BIT_DEVICE_CODE-ADVANCED:INTERNAL=1
 //List of intermediate files that are part of the cuda dependency
 // scanning.
-CUDA_ADDITIONAL_CLEAN_FILES:INTERNAL=/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_delauneyGPU.cu.o.depend;/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_point.cu.o.depend;/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_triangle.cu.o.depend
+CUDA_ADDITIONAL_CLEAN_FILES:INTERNAL=/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_delauneyGPU.cu.o.depend;/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_point.cu.o.depend;/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_triangle.cu.o.depend;/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build/src/CMakeFiles/LowPoly.dir//LowPoly_generated_cvutil.cu.o.depend
 //ADVANCED property for variable: CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE
 CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_CUDART_LIBRARY

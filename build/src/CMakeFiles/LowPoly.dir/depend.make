@@ -3,7 +3,15 @@
 
 src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/LowPoly.cpp
 src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/LowPoly.h
-src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/delauneyCPU.h
+src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/cvutil.h
+src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/delauney.h
 src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/point.h
 src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: ../src/triangle.h
+src/CMakeFiles/LowPoly.dir/LowPoly.cpp.o: /usr/local/depot/cuda-8.0/include/cuda.h
+
+src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o: ../src/delauney.h
+src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o: ../src/delauneyCPU.cpp
+src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o: ../src/point.h
+src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o: ../src/triangle.h
+src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o: /usr/local/depot/cuda-8.0/include/cuda.h
 

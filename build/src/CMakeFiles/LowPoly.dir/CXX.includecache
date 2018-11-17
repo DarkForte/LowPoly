@@ -27,16 +27,44 @@ point.h
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
 LowPoly.h
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/LowPoly.h
-delauneyCPU.h
-/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauneyCPU.h
+delauney.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauney.h
 triangle.h
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
+cvutil.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/cvutil.h
 
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/LowPoly.h
 iostream
 -
 
-/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauneyCPU.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/cvutil.h
+opencv2/core.hpp
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/opencv2/core.hpp
+opencv2/highgui.hpp
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/opencv2/highgui.hpp
+opencv2/imgcodecs.hpp
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/opencv2/imgcodecs.hpp
+opencv2/imgproc/imgproc.hpp
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/opencv2/imgproc/imgproc.hpp
+point.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
+LowPoly.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/LowPoly.h
+triangle.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
+
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauney.h
+cuda.h
+-
+vector
+-
+point.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
+triangle.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
+
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauneyCPU.cpp
 vector
 -
 unordered_set
@@ -45,10 +73,18 @@ point.h
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
 triangle.h
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
+delauney.h
+/afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/delauney.h
 
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
 
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/triangle.h
 point.h
 /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/src/point.h
+
+/usr/local/depot/cuda-8.0/include/cuda.h
+stdlib.h
+-
+stdint.h
+-
 
