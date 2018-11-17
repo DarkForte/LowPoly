@@ -9,9 +9,10 @@ LINK_DIRECTORIES(~/softwares/opencv-3.4.1/install/lib64)
 file(GLOB LowPoly_src
     "*.h"
     "*.cpp"
+    "*.cu"
 )
 
-add_executable(LowPoly ${LowPoly_src})
+cuda_add_executable(LowPoly ${LowPoly_src})
 TARGET_LINK_LIBRARIES(LowPoly opencv_core opencv_highgui opencv_imgcodecs opencv_imgproc)
 #target_link_libraries( LowPoly ${OpenCV_LIBS} )
 

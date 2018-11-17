@@ -10,7 +10,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "point.h"
 #include "LowPoly.h"
-#include "delauneyCPU.h"
+#include "delauney.h"
 #include "triangle.h"
 
 using namespace std;
