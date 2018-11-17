@@ -3,3 +3,4 @@ docs/papers
 gDel2D-Oct2015.zip
 .idea/
 cmake-build-debug/
+build/
