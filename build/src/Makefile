@@ -139,6 +139,30 @@ LowPoly.cpp.s:
 	cd /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build && $(MAKE) -f src/CMakeFiles/LowPoly.dir/build.make src/CMakeFiles/LowPoly.dir/LowPoly.cpp.s
 .PHONY : LowPoly.cpp.s
 
+delauneyCPU.o: delauneyCPU.cpp.o
+.PHONY : delauneyCPU.o
+
+# target to build an object file
+delauneyCPU.cpp.o:
+	cd /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build && $(MAKE) -f src/CMakeFiles/LowPoly.dir/build.make src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.o
+.PHONY : delauneyCPU.cpp.o
+
+delauneyCPU.i: delauneyCPU.cpp.i
+.PHONY : delauneyCPU.i
+
+# target to preprocess a source file
+delauneyCPU.cpp.i:
+	cd /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build && $(MAKE) -f src/CMakeFiles/LowPoly.dir/build.make src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.i
+.PHONY : delauneyCPU.cpp.i
+
+delauneyCPU.s: delauneyCPU.cpp.s
+.PHONY : delauneyCPU.s
+
+# target to generate assembly for a file
+delauneyCPU.cpp.s:
+	cd /afs/andrew.cmu.edu/usr23/zhengjih/private/LowPoly/build && $(MAKE) -f src/CMakeFiles/LowPoly.dir/build.make src/CMakeFiles/LowPoly.dir/delauneyCPU.cpp.s
+.PHONY : delauneyCPU.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -151,6 +175,9 @@ help:
 	@echo "... LowPoly.o"
 	@echo "... LowPoly.i"
 	@echo "... LowPoly.s"
+	@echo "... delauneyCPU.o"
+	@echo "... delauneyCPU.i"
+	@echo "... delauneyCPU.s"
 .PHONY : help
 
 
