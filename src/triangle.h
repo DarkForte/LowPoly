@@ -2,6 +2,7 @@
 
 #include "point.h"
 
+
 #ifdef __CUDACC__
 #define CUDA_HOSTDEV __host__ __device__
 #else
@@ -11,6 +12,7 @@
 struct Triangle
 {
     Point points[3];
+    CUDA_HOSTDEV
     Triangle(){}
 
     CUDA_HOSTDEV
