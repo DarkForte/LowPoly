@@ -32,7 +32,7 @@ void PrintDevice()
     cudaError_t err = cudaGetDeviceCount(&deviceCount);
 
     printf("---------------------------------------------------------\n");
-    printf("Initializing CUDA for CudaRenderer\n");
+    printf("Initializing CUDA\n");
     printf("Found %d CUDA devices\n", deviceCount);
 
     for (int i=0; i<deviceCount; i++) {
