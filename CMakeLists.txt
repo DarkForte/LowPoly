@@ -9,8 +9,8 @@ FIND_PACKAGE(CUDA REQUIRED)
 
 set(CUDA_SEPARABLE_COMPILATION ON)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-SET (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-O0;-g;-gencode arch=compute_61,code=sm_61;--std=c++11;")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11")
+SET (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-O3;-gencode arch=compute_61,code=sm_61;--std=c++11;")
 
 message(${CUDA_NVCC_FLAGS})
 

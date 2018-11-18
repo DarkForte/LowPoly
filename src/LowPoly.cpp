@@ -100,29 +100,36 @@ int main(int argc, char **argv)
     float edgePortion = 0.8; // percentage of points being on edge
     float edgeThresh = 0.1; // threshold for a point being an edge
     bool fromFile = false;
+
+    bool useCPU = false;//Use CPU or GPU
     // parse inputs
     int opt;
-    while ((opt = getopt(argc, argv, "f:i:v:e:")) != -1)
+    while ((opt = getopt(argc, argv, "f:i:v:e:c")) != -1)
     {
-        if(opt == 'f')
-        {
-            fromFile = true;
-        }
+        if(opt == 'c')
+            useCPU = true;
         else
         {
-            switch (opt)
+            if(opt == 'f')
             {
-                case 'i':
-                    imgPath = optarg;
-                    break;
-                case 'v':
-                    numVertices = atoi(optarg);
-                    break;
-                case 'e':
-                    edgePortion = atof(optarg);
-                    break;
-                default:
-                    cout << "Unrecognized argument: " << opt;
+                fromFile = true;
+            }
+            else
+            {
+                switch (opt)
+                {
+                    case 'i':
+                        imgPath = optarg;
+                        break;
+                    case 'v':
+                        numVertices = atoi(optarg);
+                        break;
+                    case 'e':
+                        edgePortion = atof(optarg);
+                        break;
+                    default:
+                        cout << "Unrecognized argument: " << char(opt)<<endl;
+                }
             }
         }
     }
@@ -134,22 +141,38 @@ int main(int argc, char **argv)
 
     vector<int> owner(rows * cols, -1);
 
-    // vector<Triangle> triangles = DelauneyCPU(vertices, owner, rows, cols);
-
-
-    // GPU can't deal with vector
-    int ownerArray[rows * cols];
-    memset(ownerArray, -1, sizeof ownerArray);
-    Point verticesArray[numVertices];
-    for (int i = 0; i < numVertices; i++)
+    vector<Triangle> triangles;
+    if(useCPU)
     {
-        verticesArray[i].x = vertices[i].x;
-        verticesArray[i].y = vertices[i].y;
+        cout<<"Using CPU"<<endl;
+        std::clock_t comp_start = std::clock();
+        triangles = DelauneyCPU(vertices, owner, rows, cols);
+        cout<<"Delaunay Time: "<< (std::clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<"ms"<<endl;
+
     }
-    vector<Triangle> triangles = DelauneyGPU(verticesArray, numVertices, ownerArray, rows, cols);
-    for (int i = 0; i < rows*cols; i++) 
+    else // Use GPU
     {
-        owner[i] = ownerArray[i];
+        cout<<"Using CUDA"<<endl;
+
+        // GPU can't deal with vector
+        int ownerArray[rows * cols];
+        memset(ownerArray, -1, sizeof ownerArray);
+        Point verticesArray[numVertices];
+        for (int i = 0; i < numVertices; i++)
+        {
+            verticesArray[i].x = vertices[i].x;
+            verticesArray[i].y = vertices[i].y;
+        }
+        std::clock_t comp_start = std::clock();
+        triangles = DelauneyGPU(verticesArray, numVertices, ownerArray, rows, cols);
+
+        cout<<"Delaunay Time: "<< (std::clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<"ms"<<endl;
+        comp_start = std::clock();
+        for (int i = 0; i < rows*cols; i++)
+        {
+            owner[i] = ownerArray[i];
+        }
+        cout<<"Owner Time: "<< (std::clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<"ms"<<endl;
     }
 
     cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);

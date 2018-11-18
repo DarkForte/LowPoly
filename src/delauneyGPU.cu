@@ -1,6 +1,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <driver_functions.h>
+#include <ctime>
 #include "triangle.h"
 #include <vector>
 #include <stdio.h>
@@ -211,6 +212,8 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
 {
     PrintDevice();
 
+    clock_t mem_start = clock();
+
     // put seeds on the graph
     for(int i=0; i<numSeeds; i++)
     {
@@ -228,6 +231,9 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     cudaMalloc(&device_owner, sizeof(int)*rows*cols);
     cudaMemcpy(device_seeds, seeds, sizeof(Point)*numSeeds, cudaMemcpyHostToDevice);
     cudaMemcpy(device_owner, owner, sizeof(int)*rows*cols, cudaMemcpyHostToDevice);
+
+    cout<<"Mem Time: "<< (clock() - mem_start) / (double)(CLOCKS_PER_SEC / 1000)<<endl;
+    clock_t comp_start = clock();
 
     // Step1 : find Voronoi graph
     int start_stepsize = NextPower2_CPU(min(rows, cols)) / 2;
@@ -272,6 +278,8 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     cudaFree(device_triangle_cnts);
     cudaFree(device_sum_triangles);
     cudaFree(device_triangles);
+
+    cout<<"Core computation time: "<< (clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<endl;
 
     return ret;
 }
