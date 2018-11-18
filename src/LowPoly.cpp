@@ -14,6 +14,10 @@
 #include "triangle.h"
 #include "cvutil.h"
 #include <ctime>
+#include <cstring>
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 using namespace std;
 
@@ -142,7 +146,7 @@ int main(int argc, char **argv)
         verticesArray[i].x = vertices[i].x;
         verticesArray[i].y = vertices[i].y;
     }
-    Triangle* triangles = DelauneyGPU(verticesArray, numVertices, ownerArray, rows, cols);
+    vector<Triangle> triangles = DelauneyGPU(verticesArray, numVertices, ownerArray, rows, cols);
     for (int i = 0; i < rows*cols; i++) 
     {
         owner[i] = ownerArray[i];
@@ -151,11 +155,11 @@ int main(int argc, char **argv)
     cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
     cv::imwrite("voronoi.png", voronoi);
 
-    // cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
-    // cv::imwrite("triangle_lines.png", triLine);
+    cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
+    cv::imwrite("triangle_lines.png", triLine);
 
-    // cv::Mat triImg = drawTriangle(triangles, img);
-    // cv::imwrite("triangle.png", triImg);
+    cv::Mat triImg = drawTriangle(triangles, img);
+    cv::imwrite("triangle.png", triImg);
 
     std::cout << "Total time: " << (std::clock() - start) / (double)(CLOCKS_PER_SEC / 1000) << " ms" << std::endl;
     return 0;

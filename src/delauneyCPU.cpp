@@ -68,6 +68,7 @@ vector<Triangle> DelauneyCPU(vector<Point> &seeds, vector<int> &owner, int rows,
         }
     }
 
+    // 2. build triangles
     vector<Triangle> triangles;
     const Point neighbor_dir[] = {Point(1, 0), Point(0, 1), Point(1, 1)};
     for(int r=0; r < rows - 1; r++)
