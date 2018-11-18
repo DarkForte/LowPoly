@@ -7,9 +7,12 @@ project ("LowPoly")
 
 FIND_PACKAGE(CUDA REQUIRED)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-SET (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O0 -g --gpu-architecture compute_35 -std=c++11")
+set(CUDA_SEPARABLE_COMPILATION ON)
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+SET (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-O0;-g;-gencode arch=compute_61,code=sm_61;--std=c++11;")
+
+message(${CUDA_NVCC_FLAGS})
 
 # Include sub-projects.
 add_subdirectory ("src")

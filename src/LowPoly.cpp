@@ -257,6 +257,8 @@ int main(int argc, char **argv)
     }
 
     vector<int> owner(rows * cols, -1);
+    vector<Triangle> foo = DelauneyGPU(vertices, owner, rows, cols);
+
 
     vector<Triangle> triangles = DelauneyCPU(vertices, owner, rows, cols);
 
