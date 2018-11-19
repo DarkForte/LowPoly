@@ -14,7 +14,7 @@ We also resolved a couple of compiling issues and finished the GPU version which
 
 ## Goals and Deliverables
 
-We are still on the track to our planned goals and things are working out smoothly. The algorithm turned out to be easier to implement than imagined, and we believe we are able to deliver everything in the planned goals. We annotated the progress of each item in bold texts.
+We are still on the track to our planned goals and things are working out smoothly. The algorithm turned out to be easier to implement than we imagined, and we believe we are able to deliver everything in the planned goals. We annotated the progress of each item in bold texts.
 
 ### Expected Goals (Plan to achieve):
 
@@ -33,7 +33,7 @@ We are still on the track to our planned goals and things are working out smooth
 
 ## Preliminary Results
 
-We are able to achieve 3x speedup for now, compared to `-O3` compiled CPU code. We have not investigated profiled the GPU code yet, but we suppose it is due to memory transferring from CPU to GPU. If we implemented the GPU version of edge detection and triangle rendering, a lot of memory transferring can be saved, which will improve the performance of our program.
+We are able to achieve 3x speedup for now, compared to `-O3` compiled CPU code. We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program.
 
 ## Concerns
 
