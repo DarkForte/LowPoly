@@ -2,6 +2,8 @@
 
 at: https://darkforte.github.io/LowPoly/
 
+[**Project Checkpoint**](checkpoint.html)
+
 ## Summary
 
 We are going to implement a parallel low poly style image converter with CUDA. It accepts an input image and transforms it into a low poly style one. We hope it can achieve real-time speed such that it can also do low poly transformation on videos.

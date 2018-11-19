@@ -212,7 +212,6 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
 {
     PrintDevice();
 
-    clock_t mem_start = clock();
 
     // put seeds on the graph
     for(int i=0; i<numSeeds; i++)
@@ -226,13 +225,19 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     dim3 blockDim(n, n);
     dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
 
+
     // transfer seeds and owner to device
+    clock_t mem_start = clock();
+
     cudaMalloc(&device_seeds, sizeof(Point)*numSeeds);
     cudaMalloc(&device_owner, sizeof(int)*rows*cols);
+    printf("Mem Time: %lf\n", (clock() - mem_start) / (double)(CLOCKS_PER_SEC / 1000));
+
     cudaMemcpy(device_seeds, seeds, sizeof(Point)*numSeeds, cudaMemcpyHostToDevice);
+
+
     cudaMemcpy(device_owner, owner, sizeof(int)*rows*cols, cudaMemcpyHostToDevice);
 
-    cout<<"Mem Time: "<< (clock() - mem_start) / (double)(CLOCKS_PER_SEC / 1000)<<endl;
     clock_t comp_start = clock();
 
     // Step1 : find Voronoi graph
