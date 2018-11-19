@@ -2,7 +2,7 @@
 
 at: https://darkforte.github.io/LowPoly/
 
-[**Project Checkpoint**](checkpoint.html)
+[**Project Checkpoint**](checkpoint/checkpoint.html)
 
 ## Summary
 

@@ -4,9 +4,9 @@
 
 ![](demo.png)
 
-- We have implemented the CPU version of the entire workflow by ourselves from scratch, including edge detection, point selection, Voronoi graph generation, and triangle rendering. 
-- We also finished our first GPU version which can now generate correct outputs. We struggled a lot and resolved a couple of compiling issues during the implementation of GPU version. 
-- The speedup of GPU version is not yet satisfactory (about 4x). We need to profile and tune the performance of the GPU version to make it run faster. 
+- We have implemented the CPU version of the entire workflow by ourselves from scratch, including edge detection, point selection, trangulation, and triangle rendering. 
+- We also finished our first GPU version which can now generate correct outputs. We resolved a couple of compiling issues during the implementation of GPU version and successfully shared most of the code between CPU and GPU versions. 
+- The speedup of GPU version is not yet satisfactory (about 4x). We need to profile and tune the performance of the GPU version to make it run faster. We may also need to use a more accurate timer.
 - As can be seen in the picture, we need to find a way to take care of the image boundaries. 
 
 ## Goals and Deliverables
@@ -36,23 +36,23 @@ In general, we are still on the track to our planned goals and things. But we wa
 ## Preliminary Results
 ![](process.png)
 
-|              | Edge Detection | Select Vertices | Generate Voronoi | Triangulation | Rendering | Other | Total |                                       
+|              | Edge Detection | Select Vertices | Generate Voronoi | Triangulation | Rendering | Other | Total |
 | ------------ | ---------------|-----------------|------------------|---------------|-----------|-------|-------|
-|  CPU -O0     |       60       | 50 | 6710 | 1430 | 180 | 60 | 8490 |   
-|  CPU -O3     |       70       | 80 | 1300 | 440 | 60 | 40 | 1990 | 
-|  GPU -O3     | NI | NI | 30 | 10 | NI |  | 430 |                                      
+|  CPU -O0     |       60       | 50 | 6710 | 1430 | 180 | 60 | 8490 |
+|  CPU -O3     |       70       | 80 | 1300 | 440 | 60 | 40 | 1990 |
+|  GPU -O3     | NI | NI | 30 | 10 | NI |  | 430 |
 
-As shown in the above form, we tested our algorithm with a 1920x1080 image and 1000 random vertices. NI here means "Not Implemented". We are able to achieve about 4x overall speedup for now, compared to `-O3` compiled CPU code.  We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program.
+As shown in the above form, we tested our algorithm with a 1920x1080 image and 1000 random vertices. NI here means "Not Implemented". We are able to achieve about 4x overall speedup for now, compared to `-O3` compiled CPU code.  We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program. Also we are using `std::clock()` for clocking now. We may switch to a higher precision timer, like the `CycleTimer` used in HW2, to get more accurate profiling data.
 
 ## Concerns
-- There is a trade off. To speedup edge detection and vertices selection, we need to implement them on GPU. But in order to do this, we need to transfer image between CPU and GPU. If we do the edge detection and vertices selection on CPU, we can avoid transfer image between CPU and GPU. So, here is a trade off between data time and computation time.
+- To speedup edge detection and vertices selection, we need to implement them on GPU. But in order to do this, we need to transfer image between CPU and GPU. If we do the edge detection and vertices selection on CPU, we can avoid transfer image between CPU and GPU. So, here is a trade off between data time and computation time.
 - Due to the limitation of current the algorithm, we are not able to gurantee to cover the boundaries of the image. We need to figure out a strategy to solve this problem without influencing the speed much.
 - We still don't know how good our final speedup can be. 
-- We are not sure whether we will have time to do the video transformation (the Ideal Goal listed above).
+- We are not sure whether we will have time to do the video transformation (the "Ideal Goal" listed above).
 
 ## Revised Schedule
 
-| Time              | Work                                                         | Status  | Mainly Responsible |
+| Time              | Work                                                         | Status  | Owner |
 | ----------------- | ------------------------------------------------------------ | ------- | ----------- |
 | 10.29 - 11.4      | Write proposal, research for existing work                   | Done!   | Both |
 | 11.5 - 11.11      | Complete sequential version of Sobel Edge Detector and Jump Flooding | Done!   | Both |
