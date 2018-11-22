@@ -9,11 +9,18 @@
 #include "delauney.h"
 #include "cycleTimer.h"
 
+#include "opencv2/core.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+
 #include <thrust/scan.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
 using namespace std;
 
+uint8_t* device_img = NULL;
+float* device_grad = NULL;
 Point* device_seeds = NULL;
 int* device_owner = NULL;
 
@@ -175,6 +182,35 @@ __global__ void triangle_kernel(Point* device_seeds, int* device_owner, Triangle
 }
 
 
+__global__ void get_grad_kernel(uint8_t* device_img, float* device_grad, int rows, int cols)
+{
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    int r = blockIdx.y * blockDim.y + threadIdx.y;
+    if (c >= cols || r >= rows)
+        return;
+
+    if (r > 0 && c > 0 && r < rows - 1 && c < cols - 1) // inside the image
+    {
+        float grad_x = -(float)device_img[(r - 1) * cols + c - 1] + (float)device_img[(r - 1) * cols + c + 1]
+                       - 2 * (float)device_img[r * cols + c - 1]  + 2 * (float)device_img[r * cols + c + 1]
+                       -(float)device_img[(r + 1) * cols + c - 1] + (float)device_img[(r + 1) * cols + c + 1];
+        grad_x = abs(grad_x);
+
+        float grad_y = -(float)device_img[(r - 1) * cols + c - 1] - 2 * (float)device_img[(r - 1) * cols + c] - (float)device_img[(r - 1) * cols + c + 1]
+                       +(float)device_img[(r + 1) * cols + c - 1] + 2 * (float)device_img[(r + 1) * cols + c] + (float)device_img[(r + 1) * cols + c + 1];
+        grad_y = abs(grad_y);
+
+        float grad = grad_x / 2.0 + grad_y / 2.0;
+        device_grad[r * cols + c] = grad;
+    }
+
+    else // set the boundary values to 0
+    {
+        device_grad[r * cols + c] = 0;
+    }
+}
+
+
 void PrintDevice()
 {
     int deviceCount = 0;
@@ -197,6 +233,37 @@ void PrintDevice()
     }
     printf("---------------------------------------------------------\n");
 }
+
+
+cv::Mat getGradGPU(cv::Mat &img)
+{
+    int rows = img.rows;
+    int cols = img.cols;
+    int numPixel = rows * cols;
+
+    cv::Mat imgGray;
+    imgGray.create(rows, cols, CV_8UC1);
+    cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+
+    cudaMalloc(&device_img, sizeof(uint8_t)*numPixel);
+    cudaMalloc(&device_grad, sizeof(float)*numPixel);
+    cudaMemcpy(device_img, imgGray.data, sizeof(uint8_t)*numPixel, cudaMemcpyHostToDevice);
+
+    unsigned int n = 32;
+    dim3 blockDim(n, n);
+    dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
+    get_grad_kernel<<<gridDim, blockDim>>>(device_img, device_grad, rows, cols);
+    gpuErrchk(cudaDeviceSynchronize());
+
+    cv::Mat grad;
+    grad.create(rows, cols, CV_32FC1);
+    cudaMemcpy(grad.data, device_grad, sizeof(float)*numPixel, cudaMemcpyDeviceToHost);
+
+    cudaFree(device_grad);
+    
+    return grad;
+}
+
 
 vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, int cols)
 {
