@@ -86,6 +86,59 @@ vector<Point> InputFromImage(char* imgPath, int &numVertices, int &rows, int &co
 }
 
 
+vector<Point> InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, cv::Mat& img, float edgePortion, float edgeThresh)
+{
+    // Read image, set rows and cols
+    img = cv::imread(imgPath);
+    if (!img.data)
+    {
+        printf("Error loading image %s\n", imgPath);
+        exit(-1);
+    }
+    rows = img.rows;
+    cols = img.cols;
+    int numPixel = rows * cols;
+
+    // get grad (edge)
+    cv::Mat grad = getGradGPU(img);
+    double minGrad, maxGrad;
+    cv::minMaxLoc(grad, &minGrad, &maxGrad);
+    grad = grad / maxGrad;
+
+    // calculate threshold for selecting edge pixel and non-edge Pixel
+    int numEdgePix = 0;
+    for (int row = 0; row < rows; row++)
+    {
+        for (int col = 0; col < cols; col++)
+        {
+            if (grad.at<float>(row, col) >= edgeThresh)
+                numEdgePix++;
+        }
+    }
+    int numEdgeV = min((int) (numVertices * edgePortion), numEdgePix);
+    int numNonEdgeV = numVertices - numEdgeV;
+    float edgeP = (float) numEdgeV / numEdgePix;
+    float nonEdgeP = (float) numNonEdgeV / (numPixel - numEdgePix);
+
+    // select points on image
+    vector<Point> vertices = selectVertices(grad, edgeThresh, edgeP, nonEdgeP, numVertices);
+
+    // write the edge detection result and selected points to img
+    cv::Mat pts = cv::Mat(rows, cols, CV_32F, 0.0);
+    for (int i = 0; i < numVertices; i++)
+    {
+        int row = vertices[i].y;
+        int col = vertices[i].x;
+        pts.at<float>(row, col) = 255.0;
+    }
+    cv::imwrite("points.png", pts);
+    cv::Mat edges = grad * 255.0;
+    cv::imwrite("edgesGPU.png", edges);
+
+    return vertices;
+}
+
+
 int main(int argc, char **argv)
 {
     std::clock_t start;
@@ -134,10 +187,16 @@ int main(int argc, char **argv)
         }
     }
 
+    // read img, detect edge, select vertices
     if (fromFile)
         vertices = InputFromFile(optarg, numVertices, rows, cols);
     else
-        vertices = InputFromImage(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
+    {
+        if (useCPU)
+            vertices = InputFromImage(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
+        else 
+            vertices = InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
+    }
 
     vector<int> owner(rows * cols, -1);
 
