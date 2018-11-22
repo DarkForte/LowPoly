@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <iostream>
 #include "delauney.h"
+#include "cycleTimer.h"
 
 #include <thrust/scan.h>
 #include <thrust/functional.h>
@@ -14,10 +15,7 @@
 using namespace std;
 
 Point* device_seeds = NULL;
-Triangle* device_triangles = NULL;
 int* device_owner = NULL;
-int* mutex;
-int* numTriangles;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -54,14 +52,6 @@ __device__ __inline__ bool InBound(Point p, int row, int col)
 __device__ __inline__ int Index(Point p, int col)
 {
     return p.y * col + p.x;
-}
-
-__global__ void try_kernel()
-{
-    Triangle triangle_1;
-    Triangle triangle(Point(0, 0), Point(0, 3), Point(3, 3));
-    Point center = triangle.center();
-    printf("%d, %d\n", center.x, center.y);
 }
 
 __global__ void voronoi_kernel(Point* device_seeds, int* device_owner, int stepsize, int rows, int cols)
@@ -212,7 +202,6 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
 {
     PrintDevice();
 
-
     // put seeds on the graph
     for(int i=0; i<numSeeds; i++)
     {
@@ -225,20 +214,17 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     dim3 blockDim(n, n);
     dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
 
-
     // transfer seeds and owner to device
-    clock_t mem_start = clock();
-
     cudaMalloc(&device_seeds, sizeof(Point)*numSeeds);
+
+    double mem_start = CycleTimer::currentSeconds();
     cudaMalloc(&device_owner, sizeof(int)*rows*cols);
-    printf("Mem Time: %lf\n", (clock() - mem_start) / (double)(CLOCKS_PER_SEC / 1000));
-
     cudaMemcpy(device_seeds, seeds, sizeof(Point)*numSeeds, cudaMemcpyHostToDevice);
-
-
     cudaMemcpy(device_owner, owner, sizeof(int)*rows*cols, cudaMemcpyHostToDevice);
+    printf("Mem Time: %lf ms\n", (CycleTimer::currentSeconds() - mem_start)*1000);
 
-    clock_t comp_start = clock();
+
+    double comp_start = CycleTimer::currentSeconds();
 
     // Step1 : find Voronoi graph
     int start_stepsize = NextPower2_CPU(min(rows, cols)) / 2;
@@ -284,7 +270,7 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     cudaFree(device_sum_triangles);
     cudaFree(device_triangles);
 
-    cout<<"Core computation time: "<< (clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<endl;
+    cout<<"Core computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<endl;
 
     return ret;
 }
