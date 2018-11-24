@@ -30,7 +30,6 @@ vector<Point> InputFromFile(char* filePath, int &numVertices, int &rows, int &co
     freopen(filePath, "r", stdin);
     vector<Point> ret;
     cin>>numVertices>>rows>>cols;
-    int i;
     for(int i=1; i<=numVertices; i++)
     {
         int x, y;
@@ -126,7 +125,9 @@ Point* InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, 
 
     // select points on image
     vector<Point> vertices = selectVertices(grad, edgeThresh, edgeP, nonEdgeP, numVertices);
-    Point vertexMap[numPixel];
+
+    // open it on heap because it can be very large
+    Point* vertexMap = new Point[numPixel];
     memset(vertexMap, -1, sizeof(Point) * numPixel);
 
     for(Point p: vertices)
@@ -135,6 +136,8 @@ Point* InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, 
     Point* device_ownerMap;
     cudaMalloc(&device_ownerMap, sizeof(Point) * numPixel);
     cudaMemcpy(device_ownerMap, vertexMap, sizeof(Point) * numPixel, cudaMemcpyHostToDevice);
+
+    delete(vertexMap);
 
     // write the edge detection result and selected points to img
     cv::Mat pts = cv::Mat(rows, cols, CV_32F, 0.0);
