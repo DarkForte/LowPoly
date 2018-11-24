@@ -28,3 +28,13 @@ Point operator / (const Point &a, int b)
 {
     return Point(a.x / b, a.y / b);
 }
+
+bool operator == (const Point &a, const Point &b)
+{
+    return a.x == b.x && a.y == b.y;
+}
+
+bool Point::isInvalid()
+{
+    return x == -1 && y == -1;
+}

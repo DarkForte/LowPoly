@@ -2,7 +2,7 @@ docs/papers
 .vs/
 gDel2D-Oct2015.zip
 .idea/
-cmake-build-debug/
 build/
 /*.jpg
 /*.png
+cmake-build-*/

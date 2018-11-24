@@ -13,9 +13,13 @@
 #include "delauney.h"
 #include "triangle.h"
 #include "cvutil.h"
+#include "cycleTimer.h"
 #include <ctime>
 #include <cstring>
 
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <driver_functions.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
@@ -85,8 +89,8 @@ vector<Point> InputFromImage(char* imgPath, int &numVertices, int &rows, int &co
     return vertices;
 }
 
-
-vector<Point> InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, cv::Mat& img, float edgePortion, float edgeThresh)
+// Returns a pointer to vertex map (vertexMap[i][j] = (i,j) if it is vertex, (-1, -1) otherwise) on device
+Point* InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, cv::Mat& img, float edgePortion, float edgeThresh)
 {
     // Read image, set rows and cols
     img = cv::imread(imgPath);
@@ -122,6 +126,15 @@ vector<Point> InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int 
 
     // select points on image
     vector<Point> vertices = selectVertices(grad, edgeThresh, edgeP, nonEdgeP, numVertices);
+    Point vertexMap[numPixel];
+    memset(vertexMap, -1, sizeof(Point) * numPixel);
+
+    for(Point p: vertices)
+        vertexMap[p.y * cols + p.x] = p;
+
+    Point* device_ownerMap;
+    cudaMalloc(&device_ownerMap, sizeof(Point) * numPixel);
+    cudaMemcpy(device_ownerMap, vertexMap, sizeof(Point) * numPixel, cudaMemcpyHostToDevice);
 
     // write the edge detection result and selected points to img
     cv::Mat pts = cv::Mat(rows, cols, CV_32F, 0.0);
@@ -135,16 +148,14 @@ vector<Point> InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int 
     cv::Mat edges = grad * 255.0;
     cv::imwrite("edgesGPU.png", edges);
 
-    return vertices;
+    return device_ownerMap;
 }
 
 
 int main(int argc, char **argv)
 {
-    std::clock_t start;
-    start = std::clock();
+    double start = CycleTimer::currentSeconds();
 
-    vector<Point> vertices;
     int rows, cols;
 
     char *imgPath;
@@ -187,62 +198,61 @@ int main(int argc, char **argv)
         }
     }
 
-    // read img, detect edge, select vertices
-    if (fromFile)
-        vertices = InputFromFile(optarg, numVertices, rows, cols);
-    else
-    {
-        if (useCPU)
-            vertices = InputFromImage(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
-        else 
-            vertices = InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
-    }
-
-    vector<int> owner(rows * cols, -1);
-
     vector<Triangle> triangles;
+
     if(useCPU)
     {
         cout<<"Using CPU"<<endl;
-        std::clock_t comp_start = std::clock();
-        triangles = DelauneyCPU(vertices, owner, rows, cols);
-        cout<<"Delaunay Time: "<< (std::clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<"ms"<<endl;
+        vector<Point> vertices;
 
+        // read img, detect edge, select vertices
+        if(fromFile)
+            vertices = InputFromFile(optarg, numVertices, rows, cols);
+        else
+            vertices = InputFromImage(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
+
+        vector<int> owner(rows * cols, -1);
+
+        double comp_start = CycleTimer::currentSeconds();
+        triangles = DelauneyCPU(vertices, owner, rows, cols);
+        cout<<"Delaunay Time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+
+        cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
+        cv::imwrite("voronoi.png", voronoi);
+
+        cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
+        cv::imwrite("triangle_lines.png", triLine);
+
+        cv::Mat triImg = drawTriangle(triangles, img);
+        cv::imwrite("triangle.png", triImg);
     }
-    else // Use GPU
+    else //Use CUDA
     {
         cout<<"Using CUDA"<<endl;
 
-        // GPU can't deal with vector
-        int ownerArray[rows * cols];
-        memset(ownerArray, -1, sizeof ownerArray);
-        Point verticesArray[numVertices];
-        for (int i = 0; i < numVertices; i++)
-        {
-            verticesArray[i].x = vertices[i].x;
-            verticesArray[i].y = vertices[i].y;
-        }
-        std::clock_t comp_start = std::clock();
-        triangles = DelauneyGPU(verticesArray, numVertices, ownerArray, rows, cols);
+        Point* device_ownerMap;
+        // read img, detect edge, select vertices
+        device_ownerMap = InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
 
-        cout<<"Delaunay Time: "<< (std::clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<"ms"<<endl;
-        comp_start = std::clock();
-        for (int i = 0; i < rows*cols; i++)
-        {
-            owner[i] = ownerArray[i];
-        }
-        cout<<"Owner Time: "<< (std::clock() - comp_start) / (double)(CLOCKS_PER_SEC / 1000) <<"ms"<<endl;
+        double comp_start = CycleTimer::currentSeconds();
+        triangles = DelauneyGPU(device_ownerMap, rows, cols);
+
+        cout<<"Delaunay Time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+
+        /*
+        cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
+        cv::imwrite("voronoi.png", voronoi);
+
+        cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
+        cv::imwrite("triangle_lines.png", triLine);
+        */
+
+        cv::Mat triImg = drawTriangle(triangles, img);
+        cv::imwrite("triangle.png", triImg);
+
+        cudaFree(device_ownerMap);
     }
 
-    cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
-    cv::imwrite("voronoi.png", voronoi);
-
-    cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
-    cv::imwrite("triangle_lines.png", triLine);
-
-    cv::Mat triImg = drawTriangle(triangles, img);
-    cv::imwrite("triangle.png", triImg);
-
-    std::cout << "Total time: " << (std::clock() - start) / (double)(CLOCKS_PER_SEC / 1000) << " ms" << std::endl;
+    cout << "Total time: " << (CycleTimer::currentSeconds() - start) * 1000 << " ms" << endl;
     return 0;
 }

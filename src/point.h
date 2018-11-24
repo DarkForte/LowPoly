@@ -16,6 +16,9 @@ struct Point
     Point(){}
     CUDA_HOSTDEV
     Point(int _x, int _y);
+
+    CUDA_HOSTDEV
+    bool isInvalid();
 };
 
 CUDA_HOSTDEV
@@ -29,3 +32,6 @@ Point operator * (const Point &a, int b);
 
 CUDA_HOSTDEV
 Point operator / (const Point &a, int b);
+
+CUDA_HOSTDEV
+bool operator == (const Point &a, const Point &b);

@@ -61,7 +61,7 @@ __device__ __inline__ int Index(Point p, int col)
     return p.y * col + p.x;
 }
 
-__global__ void voronoi_kernel(Point* device_seeds, int* device_owner, int stepsize, int rows, int cols)
+__global__ void voronoi_kernel(Point* device_owner, int stepsize, int rows, int cols)
 {   
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int r = blockIdx.y * blockDim.y + threadIdx.y;
@@ -78,18 +78,19 @@ __global__ void voronoi_kernel(Point* device_seeds, int* device_owner, int steps
         if(!InBound(now_looking, rows, cols))
             continue;
 
-        if(device_owner[Index(now_looking, cols)] == -1)
+        if(device_owner[Index(now_looking, cols)].isInvalid())
             continue;
 
-        int cand_dist = dist(device_seeds[device_owner[Index(now_looking, cols)]], now_point);
-        int now_owner = device_owner[Index(now_point, cols)];
+        int cand_dist = dist(device_owner[Index(now_looking, cols)], now_point);
+        Point now_owner = device_owner[Index(now_point, cols)];
 
-        if(now_owner == -1 || cand_dist < dist(device_seeds[now_owner], now_point))
+        if(now_owner.isInvalid() || cand_dist < dist(now_owner, now_point))
             device_owner[Index(now_point, cols)] = device_owner[Index(now_looking, cols)];
     }
 }
 
-__device__ void count_colors(Point now_point, int device_owner[], int colors[4], int &numColors, int cols)
+// Color = a seed
+__device__ void count_colors(Point now_point, Point device_owner[], Point colors[4], int &numColors, int cols)
 {
     Point neighbor_dir[] = {Point(1, 0), Point(0, 1), Point(1, 1)};
 
@@ -98,7 +99,7 @@ __device__ void count_colors(Point now_point, int device_owner[], int colors[4],
     for(Point now_dir: neighbor_dir)
     {
         Point next_point = now_point + now_dir;
-        int newColor = device_owner[Index(next_point, cols)];
+        Point newColor = device_owner[Index(next_point, cols)];
         bool exist = false;
         for (int i = 0; i < numColors; i++)
         {
@@ -117,7 +118,7 @@ __device__ void count_colors(Point now_point, int device_owner[], int colors[4],
 }
 
 // Parallelize by pixel, tell the caller the #triangle at (c, r)
-__global__ void count_triangle_kernel(int* device_owner, int rows, int cols, int* triangle_count)
+__global__ void count_triangle_kernel(Point* device_owner, int rows, int cols, int* triangle_count)
 {
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int r = blockIdx.y * blockDim.y + threadIdx.y;
@@ -126,7 +127,7 @@ __global__ void count_triangle_kernel(int* device_owner, int rows, int cols, int
 
     Point now_point(c, r);
 
-    int colors[4] = {-1, -1, -1, -1};
+    Point colors[4] = {Point(-1, -1), Point(-1, -1), Point(-1, -1), Point(-1, -1)};
     int numColors;
     count_colors(now_point, device_owner, colors, numColors, cols);
 
@@ -139,7 +140,7 @@ __global__ void count_triangle_kernel(int* device_owner, int rows, int cols, int
 }
 
 // put triangle to device_triangles
-__global__ void triangle_kernel(Point* device_seeds, int* device_owner, Triangle* device_triangles, int rows, int cols, int* device_sum_triangles)
+__global__ void triangle_kernel(Point* device_owner, Triangle* device_triangles, int rows, int cols, int* device_sum_triangles)
 {
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int r = blockIdx.y * blockDim.y + threadIdx.y;
@@ -148,7 +149,7 @@ __global__ void triangle_kernel(Point* device_seeds, int* device_owner, Triangle
 
     Point now_point(c, r);
 
-    int colors[4] = {-1, -1, -1, -1};
+    Point colors[4] = {Point(-1, -1), Point(-1, -1), Point(-1, -1), Point(-1, -1)};
     int numColors;
     count_colors(now_point, device_owner, colors, numColors, cols);
 
@@ -160,20 +161,20 @@ __global__ void triangle_kernel(Point* device_seeds, int* device_owner, Triangle
         Triangle triangle;
         for(int i=0; i<3; i++)
         {
-            triangle.points[i] = device_seeds[colors[i]];
+            triangle.points[i] = colors[i];
         }
 
         device_triangles[prev_triangle_cnt] = triangle;
     }
     else if(numColors == 4)
     {
-        Triangle triangle1(device_seeds[device_owner[Index(now_point, cols)]],
-                           device_seeds[device_owner[Index(now_point + Point(1, 0), cols)]],
-                           device_seeds[device_owner[Index(now_point + Point(0, 1), cols)]]);
+        Triangle triangle1(device_owner[Index(now_point, cols)],
+                           device_owner[Index(now_point + Point(1, 0), cols)],
+                           device_owner[Index(now_point + Point(0, 1), cols)]);
 
-        Triangle triangle2(device_seeds[device_owner[Index(now_point + Point(1, 0), cols)]],
-                           device_seeds[device_owner[Index(now_point + Point(0, 1), cols)]],
-                           device_seeds[device_owner[Index(now_point + Point(1, 1), cols)]]);
+        Triangle triangle2(device_owner[Index(now_point + Point(1, 0), cols)],
+                           device_owner[Index(now_point + Point(0, 1), cols)],
+                           device_owner[Index(now_point + Point(1, 1), cols)]);
 
         device_triangles[prev_triangle_cnt] = triangle1;
         device_triangles[prev_triangle_cnt+1] = triangle2;
@@ -265,31 +266,14 @@ cv::Mat getGradGPU(cv::Mat &img)
 }
 
 
-vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, int cols)
+vector<Triangle> DelauneyGPU(Point* device_ownerMap, int rows, int cols)
 {
     PrintDevice();
-
-    // put seeds on the graph
-    for(int i=0; i<numSeeds; i++)
-    {
-        Point seed = seeds[i];
-        owner[Index_CPU(seed, cols)] = i;
-    }
 
     // define grid and block size
     unsigned int n = 32;
     dim3 blockDim(n, n);
     dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
-
-    // transfer seeds and owner to device
-    cudaMalloc(&device_seeds, sizeof(Point)*numSeeds);
-
-    double mem_start = CycleTimer::currentSeconds();
-    cudaMalloc(&device_owner, sizeof(int)*rows*cols);
-    cudaMemcpy(device_seeds, seeds, sizeof(Point)*numSeeds, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_owner, owner, sizeof(int)*rows*cols, cudaMemcpyHostToDevice);
-    printf("Mem Time: %lf ms\n", (CycleTimer::currentSeconds() - mem_start)*1000);
-
 
     double comp_start = CycleTimer::currentSeconds();
 
@@ -297,18 +281,15 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     int start_stepsize = NextPower2_CPU(min(rows, cols)) / 2;
     for(int stepsize = start_stepsize; stepsize>=1; stepsize /= 2)
     {
-        voronoi_kernel<<<gridDim, blockDim>>>(device_seeds, device_owner, stepsize, rows, cols);
+        voronoi_kernel<<<gridDim, blockDim>>>(device_ownerMap, stepsize, rows, cols);
         gpuErrchk(cudaDeviceSynchronize());
     }
-
-    // copy owner data to CPU
-    cudaMemcpy(owner, device_owner, sizeof(int)*rows*cols, cudaMemcpyDeviceToHost);
 
     // Step 2: find the number of triangles
     int* device_triangle_cnts;
     cudaMalloc(&device_triangle_cnts, sizeof(int) * rows * cols);
 
-    count_triangle_kernel<<<gridDim, blockDim>>>(device_owner, rows, cols, device_triangle_cnts);
+    count_triangle_kernel<<<gridDim, blockDim>>>(device_ownerMap, rows, cols, device_triangle_cnts);
     gpuErrchk(cudaDeviceSynchronize());
 
     // Step 3: prefix sum #triangles
@@ -321,7 +302,7 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     int num_triangles;
     cudaMemcpy(&num_triangles, &device_sum_triangles[rows*cols-1], sizeof(int), cudaMemcpyDeviceToHost);
     cudaMalloc(&device_triangles, sizeof(Triangle) * num_triangles);
-    triangle_kernel<<<gridDim, blockDim>>>(device_seeds, device_owner, device_triangles, rows, cols, device_sum_triangles);
+    triangle_kernel<<<gridDim, blockDim>>>(device_ownerMap, device_triangles, rows, cols, device_sum_triangles);
     gpuErrchk(cudaDeviceSynchronize());
 
     // copy triangle data to CPU
@@ -331,13 +312,11 @@ vector<Triangle> DelauneyGPU(Point* seeds, int numSeeds, int* owner, int rows, i
     vector<Triangle> ret(triangles, triangles + num_triangles);
 
     // free
-    cudaFree(device_seeds);
-    cudaFree(device_owner);
     cudaFree(device_triangle_cnts);
     cudaFree(device_sum_triangles);
     cudaFree(device_triangles);
 
-    cout<<"Core computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<endl;
+    cout<<"Delauney Core computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 
     return ret;
 }
