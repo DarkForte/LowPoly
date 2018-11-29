@@ -8,6 +8,8 @@
 #include <iostream>
 #include "delauney.h"
 #include "cycleTimer.h"
+#include <curand.h>
+#include <curand_kernel.h>
 
 #include "opencv2/core.hpp"
 #include "opencv2/highgui.hpp"
@@ -22,6 +24,7 @@ using namespace std;
 uint8_t* device_img = NULL;
 float* device_grad = NULL;
 Point* device_seeds = NULL;
+Point* device_ownerMap = NULL;
 int* device_owner = NULL;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -212,6 +215,60 @@ __global__ void get_grad_kernel(uint8_t* device_img, float* device_grad, int row
 }
 
 
+__global__ void setup_rand_kernel(curandState *state)
+{
+    int idx = threadIdx.x * blockDim.x + threadIdx.y;
+    curand_init(idx, 0, 0, &state[idx]);
+}
+
+
+__global__ void select_vertex_kernel(float* device_grad, Point* device_ownerMap, curandState *my_curandstate, float edgeThresh, float edgeP, float nonEdgeP, float boundP, int rows, int cols)
+{
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    int r = blockIdx.y * blockDim.y + threadIdx.y;
+    if (c >= cols || r >= rows)
+        return;
+
+    int idx = r * cols + c;
+    int randIdx = threadIdx.x * blockDim.x + threadIdx.y;
+    float randNum = curand_uniform(my_curandstate+randIdx);
+
+    if (r > 0 && c > 0 && r < rows - 1 && c < cols - 1) // inside the image
+    {
+        if (device_grad[idx] > edgeThresh)
+        {
+            if (randNum <= edgeP)
+            {
+                Point p;
+                p.x = c;
+                p.y = r;
+                device_ownerMap[idx] = p;
+            }
+        } else
+        {
+            if (randNum <= nonEdgeP)
+            {
+                Point p;
+                p.x = c;
+                p.y = r;
+                device_ownerMap[idx] = p;
+            }
+        }
+    }
+
+    else // boundary
+    {
+        if (randNum <= boundP)
+        {
+            Point p;
+            p.x = c;
+            p.y = r;
+            device_ownerMap[idx] = p;
+        }
+    }
+}
+
+
 void PrintDevice()
 {
     int deviceCount = 0;
@@ -236,8 +293,12 @@ void PrintDevice()
 }
 
 
-cv::Mat getGradGPU(cv::Mat &img)
+void getGradGPU(cv::Mat &img)
 {
+    PrintDevice();
+
+    double tolt_start = CycleTimer::currentSeconds();
+
     int rows = img.rows;
     int cols = img.cols;
     int numPixel = rows * cols;
@@ -246,30 +307,54 @@ cv::Mat getGradGPU(cv::Mat &img)
     imgGray.create(rows, cols, CV_8UC1);
     cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
-    cudaMalloc(&device_img, sizeof(uint8_t)*numPixel);
+    cudaMalloc(&device_img, sizeof(uint8_t)*numPixel);    
     cudaMalloc(&device_grad, sizeof(float)*numPixel);
     cudaMemcpy(device_img, imgGray.data, sizeof(uint8_t)*numPixel, cudaMemcpyHostToDevice);
 
     unsigned int n = 32;
     dim3 blockDim(n, n);
     dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
+
+    double comp_start = CycleTimer::currentSeconds();
+
     get_grad_kernel<<<gridDim, blockDim>>>(device_img, device_grad, rows, cols);
     gpuErrchk(cudaDeviceSynchronize());
 
-    cv::Mat grad;
-    grad.create(rows, cols, CV_32FC1);
-    cudaMemcpy(grad.data, device_grad, sizeof(float)*numPixel, cudaMemcpyDeviceToHost);
-
-    cudaFree(device_grad);
-    
-    return grad;
+    cout<<"Get grad GPU computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+    cout<<"Get grad GPU total time (include first malloc): "<< (CycleTimer::currentSeconds() - tolt_start) * 1000 <<"ms"<<endl;
 }
 
 
-vector<Triangle> DelauneyGPU(Point* device_ownerMap, int rows, int cols)
+void selectVerticesGPU(int rows, int cols)
 {
-    PrintDevice();
+    double comp_start = CycleTimer::currentSeconds();
 
+    int numPixel = rows * cols;
+
+    unsigned int n = 32;
+    dim3 blockDim(n, n);
+    dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
+
+    curandState *device_state;
+    cudaMalloc(&device_state, sizeof(curandState)*n*n);
+
+    cudaMalloc(&device_ownerMap, sizeof(Point)*numPixel);
+    cudaMemset(device_ownerMap, -1, sizeof(Point)*numPixel);
+
+    setup_rand_kernel<<<1, blockDim>>>(device_state); // this curand_init is slow
+    gpuErrchk(cudaDeviceSynchronize());  
+    select_vertex_kernel<<<gridDim, blockDim>>>(device_grad, device_ownerMap, device_state, 50.0, 2e-3, 5e-4, 0.1, rows, cols);
+    gpuErrchk(cudaDeviceSynchronize());   
+
+    cudaFree(device_grad);
+    cudaFree(device_state);
+
+    cout<<"Select vertices GPU time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+}
+
+
+vector<Triangle> DelauneyGPU(int rows, int cols)
+{
     // define grid and block size
     unsigned int n = 32;
     dim3 blockDim(n, n);

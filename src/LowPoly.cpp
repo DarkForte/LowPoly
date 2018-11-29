@@ -89,7 +89,7 @@ vector<Point> InputFromImage(char* imgPath, int &numVertices, int &rows, int &co
 }
 
 // Returns a pointer to vertex map (vertexMap[i][j] = (i,j) if it is vertex, (-1, -1) otherwise) on device
-Point* InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, cv::Mat& img, float edgePortion, float edgeThresh)
+void InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, cv::Mat& img, float edgePortion, float edgeThresh)
 {
     // Read image, set rows and cols
     img = cv::imread(imgPath);
@@ -103,55 +103,29 @@ Point* InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, 
     int numPixel = rows * cols;
 
     // get grad (edge)
-    cv::Mat grad = getGradGPU(img);
-    double minGrad, maxGrad;
-    cv::minMaxLoc(grad, &minGrad, &maxGrad);
-    grad = grad / maxGrad;
+    getGradGPU(img);
+
+    // double minGrad, maxGrad;
+    // cv::minMaxLoc(grad, &minGrad, &maxGrad);
+    // grad = grad / maxGrad;
 
     // calculate threshold for selecting edge pixel and non-edge Pixel
-    int numEdgePix = 0;
-    for (int row = 0; row < rows; row++)
-    {
-        for (int col = 0; col < cols; col++)
-        {
-            if (grad.at<float>(row, col) >= edgeThresh)
-                numEdgePix++;
-        }
-    }
-    int numEdgeV = min((int) (numVertices * edgePortion), numEdgePix);
-    int numNonEdgeV = numVertices - numEdgeV;
-    float edgeP = (float) numEdgeV / numEdgePix;
-    float nonEdgeP = (float) numNonEdgeV / (numPixel - numEdgePix);
+    // int numEdgePix = 0;
+    // for (int row = 0; row < rows; row++)
+    // {
+    //     for (int col = 0; col < cols; col++)
+    //     {
+    //         if (grad.at<float>(row, col) >= edgeThresh)
+    //             numEdgePix++;
+    //     }
+    // }
+    // int numEdgeV = min((int) (numVertices * edgePortion), numEdgePix);
+    // int numNonEdgeV = numVertices - numEdgeV;
+    // float edgeP = (float) numEdgeV / numEdgePix;
+    // float nonEdgeP = (float) numNonEdgeV / (numPixel - numEdgePix);
 
     // select points on image
-    vector<Point> vertices = selectVertices(grad, edgeThresh, edgeP, nonEdgeP, numVertices);
-
-    // open it on heap because it can be very large
-    Point* vertexMap = new Point[numPixel];
-    memset(vertexMap, -1, sizeof(Point) * numPixel);
-
-    for(Point p: vertices)
-        vertexMap[p.y * cols + p.x] = p;
-
-    Point* device_ownerMap;
-    cudaMalloc(&device_ownerMap, sizeof(Point) * numPixel);
-    cudaMemcpy(device_ownerMap, vertexMap, sizeof(Point) * numPixel, cudaMemcpyHostToDevice);
-
-    delete(vertexMap);
-
-    // write the edge detection result and selected points to img
-    cv::Mat pts = cv::Mat(rows, cols, CV_32F, 0.0);
-    for (int i = 0; i < numVertices; i++)
-    {
-        int row = vertices[i].y;
-        int col = vertices[i].x;
-        pts.at<float>(row, col) = 255.0;
-    }
-    cv::imwrite("points.png", pts);
-    cv::Mat edges = grad * 255.0;
-    cv::imwrite("edgesGPU.png", edges);
-
-    return device_ownerMap;
+    selectVerticesGPU(rows, cols);
 }
 
 
@@ -235,10 +209,10 @@ int main(int argc, char **argv)
 
         Point* device_ownerMap;
         // read img, detect edge, select vertices
-        device_ownerMap = InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
+        InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgePortion, edgeThresh);
 
         double comp_start = CycleTimer::currentSeconds();
-        triangles = DelauneyGPU(device_ownerMap, rows, cols);
+        triangles = DelauneyGPU(rows, cols);
 
         cout<<"Delaunay Time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 

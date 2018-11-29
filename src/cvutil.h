@@ -53,11 +53,11 @@ vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float
     trueNumVertices += 4;
 
     // boundaries
-    float boundThresh = 0.1;
+    float boundP = 0.1;
     for (int row = 1; row < rows-1; row++)
     {
         double randNum = ((double) rand() / (RAND_MAX));
-        if (randNum <= boundThresh){
+        if (randNum <= boundP){
             Point p;
             p.x = 0;
             p.y = row;
@@ -65,7 +65,7 @@ vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float
             trueNumVertices++;
         }
         randNum = ((double) rand() / (RAND_MAX));
-        if (randNum <= boundThresh){
+        if (randNum <= boundP){
             Point p;
             p.x = cols-1;
             p.y = row;
@@ -76,7 +76,7 @@ vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float
     for (int col = 1; col < cols-1; col++)
     {
         double randNum = ((double) rand() / (RAND_MAX));
-        if (randNum <= boundThresh){
+        if (randNum <= boundP){
             Point p;
             p.x = col;
             p.y = 0;
@@ -84,7 +84,7 @@ vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float
             trueNumVertices++;
         }
         randNum = ((double) rand() / (RAND_MAX));
-        if (randNum <= boundThresh){
+        if (randNum <= boundP){
             Point p;
             p.x = col;
             p.y = rows-1;
