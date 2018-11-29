@@ -325,7 +325,7 @@ void getGradGPU(cv::Mat &img)
 }
 
 
-void selectVerticesGPU(int rows, int cols)
+void selectVerticesGPU(float edgeThresh, float edgeP, float nonEdgeP, float boundP, int rows, int cols)
 {
     double comp_start = CycleTimer::currentSeconds();
 
@@ -343,7 +343,7 @@ void selectVerticesGPU(int rows, int cols)
 
     setup_rand_kernel<<<1, blockDim>>>(device_state); // this curand_init is slow
     gpuErrchk(cudaDeviceSynchronize());  
-    select_vertex_kernel<<<gridDim, blockDim>>>(device_grad, device_ownerMap, device_state, 50.0, 2e-3, 5e-4, 0.1, rows, cols);
+    select_vertex_kernel<<<gridDim, blockDim>>>(device_grad, device_ownerMap, device_state, edgeThresh, edgeP, nonEdgeP, boundP, rows, cols);
     gpuErrchk(cudaDeviceSynchronize());   
 
     cudaFree(device_grad);

@@ -29,7 +29,7 @@ cv::Mat getGrad(cv::Mat img)
     return grad;
 }
 
-vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float nonEdgeP, int &numVertices)
+vector<Point> selectVertices(cv::Mat &grad, float edgeP, float nonEdgeP, float boundP, float edgeThresh, int &numVertices)
 {
     int rows = grad.rows;
     int cols = grad.cols;
@@ -53,7 +53,6 @@ vector<Point> selectVertices(cv::Mat &grad, float edgeThresh, float edgeP, float
     trueNumVertices += 4;
 
     // boundaries
-    float boundP = 0.1;
     for (int row = 1; row < rows-1; row++)
     {
         double randNum = ((double) rand() / (RAND_MAX));
