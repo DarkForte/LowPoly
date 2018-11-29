@@ -62,20 +62,32 @@ We are going to achieve the three steps of transforming an image to a low poly a
 
 ### Ideal Goals (Hope to achieve):
 
-* Make a real-time triangulation converter for video, and achieve better speedup on videos than processing individual frames since the frames in video are correlated.
+* Make a close real-time triangulation converter for video, and achieve better speedup on videos than processing individual frames since the frames in video are correlated.
 
 ## Platform Choice
 
 We are planning to use GHC machines with GPU for experiments, and we are planning to use C++ for development and OpenCV for some helpers like reading images and displaying images on the screen.
 
+## Preliminary Results
+![](checkpoint/process.png)
+
+|              | Edge Detection | Select Vertices | Generate Voronoi | Triangulation | Rendering | Other | Total |
+| ------------ | ---------------|-----------------|------------------|---------------|-----------|-------|-------|
+|  CPU -O0     |       60       | 50 | 6710 | 1430 | 180 | 60 | 8490 |
+|  CPU -O3     |       70       | 80 | 1300 | 440 | 60 | 40 | 1990 |
+|  GPU -O3     | NI | NI | 30 | 10 | NI |  | 430 |
+
+As shown in the above form, we tested our current algorithm with a 1920x1080 image and 1000 random vertices. NI here means "Not Implemented". We are able to achieve about 4x overall speedup for now, compared to `-O3` compiled CPU code.  We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program. Also we are using `std::clock()` for clocking now. We may switch to a higher precision timer, like the `CycleTimer` used in HW2, to get more accurate profiling data.
+
 ## Schedule
 
-| Time              | Work                                                         |
-| ----------------- | ------------------------------------------------------------ |
-| 10.29 - 11.4      | Write proposal, research for existing work                   |
-| 11.5 - 11.11      | Complete sequential version of Sobel Edge Detector and Jump Flooding |
-| **11.12 - 11.18** | Complete CUDA version of Edge Detector, prepare for Checkpoint |
-| 11.19 - 11.25     | Complete CUDA version of Jump Flooding and Triangle Rendering |
-| 11.26 - 12.2      | Performance tuning and analysis                              |
-| 12.3 - 12.9       | Complete image input and output interface, get ready for demo |
-| **12.9 - 12.15**  | Final Report                                                 |
+| Time              | Work                                                         | Status  | Owner |
+| ----------------- | ------------------------------------------------------------ | ------- | ----------- |
+| 10.29 - 11.4      | Write the proposal, research for existing work               | Done!   | Both |
+| 11.5 - 11.11      | Complete sequential version of Sobel Edge Detector and Jump Flooding | Done!   | Both |
+| **11.12 - 11.18** | Complete CUDA version of Delaunay Triangulation, prepare for Checkpoint | Done! | Both |
+| 11.19 - 11.25     | Complete CUDA version of Sobel Edge Detector and Triangle Rendering | Working | Zhengjia |
+| 11.26 - 12.2      | Performance tuning and analysis                              | Working | Weichen |
+| 12.3 - 12.6       | Solve the current problem on the image boundaries            |         | Weichen |
+| 12.7 - 12.9       | Complete image input and output interface, get ready for demo |         | Zhengjia |
+| **12.9 - 12.15**  | Final Report                                                 |         | Both |
