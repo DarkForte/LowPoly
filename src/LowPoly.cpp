@@ -119,9 +119,9 @@ int main(int argc, char **argv)
     char *imgPath;
     cv::Mat img;
     int numVertices = 0;     // only work in CPU mode
-    float edgeP = 1e-3;      // P of selecting a vertex on edge pixel
-    float nonEdgeP = 3e-4;   // P of selecting a vertex on non-edge pixel
-    float boundP = 0.05;     // P of selecting a vertex on img boundary
+    float edgeP = 4e-3;      // P of selecting a vertex on edge pixel
+    float nonEdgeP = 2e-4;   // P of selecting a vertex on non-edge pixel
+    float boundP = 0.1;     // P of selecting a vertex on img boundary
     float edgeThresh = 30.0; // threshold for a point being an edge
     bool fromFile = false;
 

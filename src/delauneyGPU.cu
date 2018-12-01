@@ -297,36 +297,38 @@ __device__ bool PointInTriangleGPU(Point pt, Point v1, Point v2, Point v3)
 
 __global__ void draw_triangle_kernel(Triangle* device_triangles, int num_triangles, uint8_t* device_img, uint8_t* device_tri_img, int rows, int cols)
 {
-    int c = blockIdx.x * blockDim.x + threadIdx.x;
-    int r = blockIdx.y * blockDim.y + threadIdx.y;
-    if (c >= cols || r >= rows)
+    int triIdx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (triIdx >= num_triangles)
         return;
 
-    int idxTri = (r * cols + c) * 3;  
+    Triangle tri = device_triangles[triIdx];
+    int minX = min(tri.points[0].x, tri.points[1].x);
+    minX = min(minX, tri.points[2].x);
+    int minY = min(tri.points[0].y, tri.points[1].y);
+    minY = min(minY, tri.points[2].y);    
+    int maxX = max(tri.points[0].x, tri.points[1].x);
+    maxX = max(maxX, tri.points[2].x);
+    int maxY = max(tri.points[0].y, tri.points[1].y);
+    maxY = max(maxY, tri.points[2].y);  
+    Point p = tri.center();
+    int imgIdx = (p.y * cols + p.x) * 3;
 
-    Point pt;
-    pt.x = c;
-    pt.y = r;
-
-    for (int triIdx = 0; triIdx < num_triangles; triIdx ++)
+    for (int r = minY; r < maxY; ++r)
     {
-        Triangle tri = device_triangles[triIdx];
-        Point p = tri.center();
-        int idxImg = (p.y * cols + p.x) * 3;
-        int minX = min(tri.points[0].x, tri.points[1].x);
-        minX = min(minX, tri.points[2].x);
-        int minY = min(tri.points[0].y, tri.points[1].y);
-        minY = min(minY, tri.points[2].y);    
-        int maxX = max(tri.points[0].x, tri.points[1].x);
-        maxX = max(maxX, tri.points[2].x);
-        int maxY = max(tri.points[0].y, tri.points[1].y);
-        maxY = max(maxY, tri.points[2].y);  
-        if (PointInTriangleGPU(pt, tri.points[0], tri.points[1], tri.points[2]))    
-        { 
-            device_tri_img[idxTri] = device_img[idxImg]; 
-            device_tri_img[idxTri + 1] = device_img[idxImg + 1]; 
-            device_tri_img[idxTri + 2] = device_img[idxImg + 2]; 
-        }                        
+        for (int c = minX; c < maxX; ++c)
+        {
+            Point pt;
+            pt.x = c;
+            pt.y = r;
+            if (PointInTriangleGPU(pt, tri.points[0], tri.points[1], tri.points[2]))    
+            { 
+                int triImgIdx = (r * cols + c) * 3;
+                device_tri_img[triImgIdx] = device_img[imgIdx]; 
+                device_tri_img[triImgIdx + 1] = device_img[imgIdx + 1]; 
+                device_tri_img[triImgIdx + 2] = device_img[imgIdx + 2]; 
+            }   
+        }                     
     }
 }
 
@@ -426,10 +428,8 @@ cv::Mat drawTriangleGPU(cv::Mat& img)
     cudaMalloc(&device_tri_img, sizeof(uint8_t)*numPixel*3);
     cudaMemcpy(device_img, img.data, sizeof(uint8_t)*numPixel*3, cudaMemcpyHostToDevice);
 
-    unsigned int n = 32;
-    dim3 blockDim(n, n);
-    dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
-    draw_triangle_kernel<<<gridDim, blockDim>>>(device_triangles, num_triangles, device_img, device_tri_img, rows, cols); // very slow
+    int gridDim = (num_triangles + 255) / 256;
+    draw_triangle_kernel<<<gridDim, 256>>>(device_triangles, num_triangles, device_img, device_tri_img, rows, cols); 
     gpuErrchk(cudaDeviceSynchronize());  
     cv::Mat tri_img;
     tri_img.create(rows, cols, CV_8UC3);
