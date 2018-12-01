@@ -196,27 +196,15 @@ int main(int argc, char **argv)
     {
         cout<<"Using CUDA"<<endl;
 
-        Point* device_ownerMap;
         // read img, detect edge, select vertices
         InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgeP, nonEdgeP, boundP, edgeThresh);
 
         double comp_start = CycleTimer::currentSeconds();
-        triangles = DelauneyGPU(rows, cols);
-
+        DelauneyGPU(rows, cols);
         cout<<"Delaunay Time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 
-        /*
-        cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
-        cv::imwrite("voronoi.png", voronoi);
-
-        cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
-        cv::imwrite("triangle_lines.png", triLine);
-        */
-
-        cv::Mat triImg = drawTriangle(triangles, img);
+        cv::Mat triImg = drawTriangleGPU(img);
         cv::imwrite("triangle.png", triImg);
-
-        cudaFree(device_ownerMap);
     }
 
     cout << "Total time: " << (CycleTimer::currentSeconds() - start) * 1000 << " ms" << endl;

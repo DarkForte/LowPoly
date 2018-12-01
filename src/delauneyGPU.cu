@@ -22,10 +22,14 @@
 using namespace std;
 
 uint8_t* device_img = NULL;
+uint8_t* device_img_gray = NULL;
+uint8_t* device_tri_img = NULL;
 float* device_grad = NULL;
 Point* device_seeds = NULL;
 Point* device_ownerMap = NULL;
 int* device_owner = NULL;
+Triangle* device_triangles = NULL;
+int num_triangles;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -186,7 +190,7 @@ __global__ void triangle_kernel(Point* device_owner, Triangle* device_triangles,
 }
 
 
-__global__ void get_grad_kernel(uint8_t* device_img, float* device_grad, int rows, int cols)
+__global__ void get_grad_kernel(uint8_t* device_img_gray, float* device_grad, int rows, int cols)
 {
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int r = blockIdx.y * blockDim.y + threadIdx.y;
@@ -195,13 +199,13 @@ __global__ void get_grad_kernel(uint8_t* device_img, float* device_grad, int row
 
     if (r > 0 && c > 0 && r < rows - 1 && c < cols - 1) // inside the image
     {
-        float grad_x = -(float)device_img[(r - 1) * cols + c - 1] + (float)device_img[(r - 1) * cols + c + 1]
-                       - 2 * (float)device_img[r * cols + c - 1]  + 2 * (float)device_img[r * cols + c + 1]
-                       -(float)device_img[(r + 1) * cols + c - 1] + (float)device_img[(r + 1) * cols + c + 1];
+        float grad_x = -(float)device_img_gray[(r - 1) * cols + c - 1] + (float)device_img_gray[(r - 1) * cols + c + 1]
+                       - 2 * (float)device_img_gray[r * cols + c - 1]  + 2 * (float)device_img_gray[r * cols + c + 1]
+                       -(float)device_img_gray[(r + 1) * cols + c - 1] + (float)device_img_gray[(r + 1) * cols + c + 1];
         grad_x = abs(grad_x);
 
-        float grad_y = -(float)device_img[(r - 1) * cols + c - 1] - 2 * (float)device_img[(r - 1) * cols + c] - (float)device_img[(r - 1) * cols + c + 1]
-                       +(float)device_img[(r + 1) * cols + c - 1] + 2 * (float)device_img[(r + 1) * cols + c] + (float)device_img[(r + 1) * cols + c + 1];
+        float grad_y = -(float)device_img_gray[(r - 1) * cols + c - 1] - 2 * (float)device_img_gray[(r - 1) * cols + c] - (float)device_img_gray[(r - 1) * cols + c + 1]
+                       +(float)device_img_gray[(r + 1) * cols + c - 1] + 2 * (float)device_img_gray[(r + 1) * cols + c] + (float)device_img_gray[(r + 1) * cols + c + 1];
         grad_y = abs(grad_y);
 
         float grad = grad_x / 2.0 + grad_y / 2.0;
@@ -269,6 +273,64 @@ __global__ void select_vertex_kernel(float* device_grad, Point* device_ownerMap,
 }
 
 
+__device__ __inline__ int signGPU(Point p1, Point p2, Point p3)
+{
+    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+}
+
+
+__device__ bool PointInTriangleGPU(Point pt, Point v1, Point v2, Point v3)
+{
+    int d1, d2, d3;
+    bool has_neg, has_pos;
+
+    d1 = signGPU(pt, v1, v2);
+    d2 = signGPU(pt, v2, v3);
+    d3 = signGPU(pt, v3, v1);
+
+    has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+    return !(has_neg && has_pos);
+}
+
+
+__global__ void draw_triangle_kernel(Triangle* device_triangles, int num_triangles, uint8_t* device_img, uint8_t* device_tri_img, int rows, int cols)
+{
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    int r = blockIdx.y * blockDim.y + threadIdx.y;
+    if (c >= cols || r >= rows)
+        return;
+
+    int idxTri = (r * cols + c) * 3;  
+
+    Point pt;
+    pt.x = c;
+    pt.y = r;
+
+    for (int triIdx = 0; triIdx < num_triangles; triIdx ++)
+    {
+        Triangle tri = device_triangles[triIdx];
+        Point p = tri.center();
+        int idxImg = (p.y * cols + p.x) * 3;
+        int minX = min(tri.points[0].x, tri.points[1].x);
+        minX = min(minX, tri.points[2].x);
+        int minY = min(tri.points[0].y, tri.points[1].y);
+        minY = min(minY, tri.points[2].y);    
+        int maxX = max(tri.points[0].x, tri.points[1].x);
+        maxX = max(maxX, tri.points[2].x);
+        int maxY = max(tri.points[0].y, tri.points[1].y);
+        maxY = max(maxY, tri.points[2].y);  
+        if (PointInTriangleGPU(pt, tri.points[0], tri.points[1], tri.points[2]))    
+        { 
+            device_tri_img[idxTri] = device_img[idxImg]; 
+            device_tri_img[idxTri + 1] = device_img[idxImg + 1]; 
+            device_tri_img[idxTri + 2] = device_img[idxImg + 2]; 
+        }                        
+    }
+}
+
+
 void PrintDevice()
 {
     int deviceCount = 0;
@@ -307,9 +369,9 @@ void getGradGPU(cv::Mat &img)
     imgGray.create(rows, cols, CV_8UC1);
     cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
-    cudaMalloc(&device_img, sizeof(uint8_t)*numPixel);    
+    cudaMalloc(&device_img_gray, sizeof(uint8_t)*numPixel);    
     cudaMalloc(&device_grad, sizeof(float)*numPixel);
-    cudaMemcpy(device_img, imgGray.data, sizeof(uint8_t)*numPixel, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_img_gray, imgGray.data, sizeof(uint8_t)*numPixel, cudaMemcpyHostToDevice);
 
     unsigned int n = 32;
     dim3 blockDim(n, n);
@@ -317,7 +379,7 @@ void getGradGPU(cv::Mat &img)
 
     double comp_start = CycleTimer::currentSeconds();
 
-    get_grad_kernel<<<gridDim, blockDim>>>(device_img, device_grad, rows, cols);
+    get_grad_kernel<<<gridDim, blockDim>>>(device_img_gray, device_grad, rows, cols);
     gpuErrchk(cudaDeviceSynchronize());
 
     cout<<"Get grad GPU computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
@@ -352,8 +414,35 @@ void selectVerticesGPU(float edgeThresh, float edgeP, float nonEdgeP, float boun
     cout<<"Select vertices GPU time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 }
 
+cv::Mat drawTriangleGPU(cv::Mat& img)
+{
+    double comp_start = CycleTimer::currentSeconds();
 
-vector<Triangle> DelauneyGPU(int rows, int cols)
+    int rows = img.rows;
+    int cols = img.cols;
+    int numPixel = rows * cols;
+
+    cudaMalloc(&device_img, sizeof(uint8_t)*numPixel*3);    
+    cudaMalloc(&device_tri_img, sizeof(uint8_t)*numPixel*3);
+    cudaMemcpy(device_img, img.data, sizeof(uint8_t)*numPixel*3, cudaMemcpyHostToDevice);
+
+    unsigned int n = 32;
+    dim3 blockDim(n, n);
+    dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
+    draw_triangle_kernel<<<gridDim, blockDim>>>(device_triangles, num_triangles, device_img, device_tri_img, rows, cols); // very slow
+    gpuErrchk(cudaDeviceSynchronize());  
+    cv::Mat tri_img;
+    tri_img.create(rows, cols, CV_8UC3);
+    cudaMemcpy(tri_img.data, device_tri_img, sizeof(uint8_t)*numPixel*3, cudaMemcpyDeviceToHost);
+
+    cudaFree(device_triangles);
+
+    cout<<"Draw triangle time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+
+    return tri_img;
+}
+
+void DelauneyGPU(int rows, int cols)
 {
     // define grid and block size
     unsigned int n = 32;
@@ -383,25 +472,20 @@ vector<Triangle> DelauneyGPU(int rows, int cols)
     thrust::inclusive_scan(thrust::device, device_triangle_cnts, device_triangle_cnts + rows*cols, device_sum_triangles);
 
     // Step 4: build the triangles
-    Triangle* device_triangles;
-    int num_triangles;
     cudaMemcpy(&num_triangles, &device_sum_triangles[rows*cols-1], sizeof(int), cudaMemcpyDeviceToHost);
     cudaMalloc(&device_triangles, sizeof(Triangle) * num_triangles);
     triangle_kernel<<<gridDim, blockDim>>>(device_ownerMap, device_triangles, rows, cols, device_sum_triangles);
     gpuErrchk(cudaDeviceSynchronize());
 
     // copy triangle data to CPU
-    Triangle triangles[num_triangles];
-    cudaMemcpy(triangles, device_triangles, sizeof(Triangle)*num_triangles, cudaMemcpyDeviceToHost);
+    // Triangle triangles[num_triangles];
+    // cudaMemcpy(triangles, device_triangles, sizeof(Triangle)*num_triangles, cudaMemcpyDeviceToHost);
 
-    vector<Triangle> ret(triangles, triangles + num_triangles);
+    // vector<Triangle> ret(triangles, triangles + num_triangles);
 
     // free
     cudaFree(device_triangle_cnts);
     cudaFree(device_sum_triangles);
-    cudaFree(device_triangles);
 
     cout<<"Delauney Core computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
-
-    return ret;
 }

@@ -13,6 +13,7 @@
 using namespace std;
 
 vector<Triangle> DelauneyCPU(vector<Point> &seeds, vector<int> &owner, int rows, int cols);
-vector<Triangle> DelauneyGPU(int rows, int cols);
+void DelauneyGPU(int rows, int cols);
 void getGradGPU(cv::Mat &img);
 void selectVerticesGPU(float edgeThresh, float edgeP, float nonEdgeP, float boundP, int rows, int cols);
+cv::Mat drawTriangleGPU(cv::Mat& img);
