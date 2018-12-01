@@ -75,7 +75,7 @@ We are planning to use GHC machines with GPU for experiments, and we are plannin
 | ------------ | ---------------|-----------------|------------------|---------------|-----------|-------|-------|
 |  CPU -O0     |       60       | 50 | 6710 | 1430 | 180 | 60 | 8490 |
 |  CPU -O3     |       70       | 80 | 1300 | 440 | 60 | 40 | 1990 |
-|  GPU -O3     | NI | NI | 30 | 10 | NI |  | 430 |
+|  GPU -O3     |       0.2      | 2.4|  30  |  10 | NI |    | 350  |
 
 As shown in the above form, we tested our current algorithm with a 1920x1080 image and 1000 random vertices. NI here means "Not Implemented". We are able to achieve about 4x overall speedup for now, compared to `-O3` compiled CPU code.  We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program. Also we are using `std::clock()` for clocking now. We may switch to a higher precision timer, like the `CycleTimer` used in HW2, to get more accurate profiling data.
 
