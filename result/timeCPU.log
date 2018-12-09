@@ -1,0 +1,48 @@
+Using CPU
+Img Size: 270 x 480
+Edge Detection Time: 4.58709ms
+Select Vertices Time: 4.40428ms
+Delaunay Time: 116.643ms
+Render Time: 2.86835ms
+Total computation time: 128.645 ms
+Total time: 137.444 ms
+Using CPU
+Img Size: 540 x 960
+Edge Detection Time: 5.66446ms
+Select Vertices Time: 11.5087ms
+Delaunay Time: 408.339ms
+Render Time: 9.02955ms
+Total computation time: 435.421 ms
+Total time: 457.672 ms
+Using CPU
+Img Size: 1080 x 1920
+Edge Detection Time: 14.5612ms
+Select Vertices Time: 46.0281ms
+Delaunay Time: 1559.86ms
+Render Time: 28.3588ms
+Total computation time: 1650.66 ms
+Total time: 1716.24 ms
+Using CPU
+Img Size: 2160 x 3840
+Edge Detection Time: 86.998ms
+Select Vertices Time: 211.593ms
+Delaunay Time: 6391.51ms
+Render Time: 95.4684ms
+Total computation time: 6790.87 ms
+Total time: 6974.06 ms
+Using CPU
+Img Size: 4320 x 7680
+Edge Detection Time: 234.587ms
+Select Vertices Time: 707.986ms
+Delaunay Time: 28217.3ms
+Render Time: 379.917ms
+Total computation time: 29557.5 ms
+Total time: 30375.6 ms
+Using CPU
+Img Size: 8640 x 15360
+Edge Detection Time: 887.548ms
+Select Vertices Time: 2640.24ms
+Delaunay Time: 119954ms
+Render Time: 1438.06ms
+Total computation time: 124979 ms
+Total time: 127169 ms
