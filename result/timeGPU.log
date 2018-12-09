@@ -1,0 +1,48 @@
+Using CUDA
+Img Size: 270 x 480
+Edge Detection Time: 2.1928ms
+Select Vertices Time: 0.39099ms
+Delaunay Time: 5.37634ms
+Render Time: 0.548661ms
+Total computation time: 8.6339 ms
+Total time: 29.324 ms
+Using CUDA
+Img Size: 540 x 960
+Edge Detection Time: 2.12504ms
+Select Vertices Time: 1.03745ms
+Delaunay Time: 11.4749ms
+Render Time: 3.38188ms
+Total computation time: 18.1585 ms
+Total time: 66.1201 ms
+Using CUDA
+Img Size: 1080 x 1920
+Edge Detection Time: 4.47189ms
+Select Vertices Time: 2.87531ms
+Delaunay Time: 37.9882ms
+Render Time: 12.6048ms
+Total computation time: 58.177 ms
+Total time: 162.806 ms
+Using CUDA
+Img Size: 2160 x 3840
+Edge Detection Time: 7.78048ms
+Select Vertices Time: 8.80634ms
+Delaunay Time: 145.695ms
+Render Time: 25.3317ms
+Total computation time: 187.841 ms
+Total time: 442.083 ms
+Using CUDA
+Img Size: 4320 x 7680
+Edge Detection Time: 23.4088ms
+Select Vertices Time: 27.4755ms
+Delaunay Time: 571.697ms
+Render Time: 63.2862ms
+Total computation time: 686.043 ms
+Total time: 1636.18 ms
+Using CUDA
+Img Size: 8640 x 15360
+Edge Detection Time: 68.9107ms
+Select Vertices Time: 98.9963ms
+Delaunay Time: 2444.41ms
+Render Time: 238.967ms
+Total computation time: 2851.45 ms
+Total time: 5449.79 ms

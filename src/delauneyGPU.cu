@@ -21,6 +21,7 @@
 #include <thrust/execution_policy.h>
 using namespace std;
 
+uint8_t* device_dummy = NULL;
 uint8_t* device_img = NULL;
 uint8_t* device_img_gray = NULL;
 uint8_t* device_tri_img = NULL;
@@ -357,11 +358,18 @@ void PrintDevice()
 }
 
 
+void fakeInit()
+{
+    cudaMalloc(&device_dummy, sizeof(uint8_t));   
+    cudaFree(device_dummy);
+}
+
+
 void getGradGPU(cv::Mat &img)
 {
-    PrintDevice();
+    // PrintDevice();
 
-    double tolt_start = CycleTimer::currentSeconds();
+    // double tolt_start = CycleTimer::currentSeconds();
 
     int rows = img.rows;
     int cols = img.cols;
@@ -379,19 +387,19 @@ void getGradGPU(cv::Mat &img)
     dim3 blockDim(n, n);
     dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
 
-    double comp_start = CycleTimer::currentSeconds();
+    // double comp_start = CycleTimer::currentSeconds();
 
     get_grad_kernel<<<gridDim, blockDim>>>(device_img_gray, device_grad, rows, cols);
     gpuErrchk(cudaDeviceSynchronize());
 
-    cout<<"Get grad GPU computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
-    cout<<"Get grad GPU total time (include first malloc): "<< (CycleTimer::currentSeconds() - tolt_start) * 1000 <<"ms"<<endl;
+    // cout<<"Get grad GPU computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+    // cout<<"Get grad GPU total time: "<< (CycleTimer::currentSeconds() - tolt_start) * 1000 <<"ms"<<endl;
 }
 
 
 void selectVerticesGPU(float edgeThresh, float edgeP, float nonEdgeP, float boundP, int rows, int cols)
 {
-    double comp_start = CycleTimer::currentSeconds();
+    // double comp_start = CycleTimer::currentSeconds();
 
     int numPixel = rows * cols;
 
@@ -413,12 +421,12 @@ void selectVerticesGPU(float edgeThresh, float edgeP, float nonEdgeP, float boun
     cudaFree(device_grad);
     cudaFree(device_state);
 
-    cout<<"Select vertices GPU time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+    // cout<<"Select vertices GPU time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 }
 
 cv::Mat drawTriangleGPU(cv::Mat& img)
 {
-    double comp_start = CycleTimer::currentSeconds();
+    // double comp_start = CycleTimer::currentSeconds();
 
     int rows = img.rows;
     int cols = img.cols;
@@ -437,7 +445,7 @@ cv::Mat drawTriangleGPU(cv::Mat& img)
 
     cudaFree(device_triangles);
 
-    cout<<"Draw triangle time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+    // cout<<"Draw triangle time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 
     return tri_img;
 }
@@ -449,7 +457,7 @@ void DelauneyGPU(int rows, int cols)
     dim3 blockDim(n, n);
     dim3 gridDim((cols + n - 1) / n, (rows + n - 1) / n);
 
-    double comp_start = CycleTimer::currentSeconds();
+    // double comp_start = CycleTimer::currentSeconds();
 
     // Step1 : find Voronoi graph
     int start_stepsize = NextPower2_CPU(min(rows, cols)) / 2;
@@ -487,5 +495,5 @@ void DelauneyGPU(int rows, int cols)
     cudaFree(device_triangle_cnts);
     cudaFree(device_sum_triangles);
 
-    cout<<"Delauney Core computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
+    // cout<<"Delauney Core computation time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 }

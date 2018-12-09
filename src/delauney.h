@@ -17,3 +17,4 @@ void DelauneyGPU(int rows, int cols);
 void getGradGPU(cv::Mat &img);
 void selectVerticesGPU(float edgeThresh, float edgeP, float nonEdgeP, float boundP, int rows, int cols);
 cv::Mat drawTriangleGPU(cv::Mat& img);
+void fakeInit();

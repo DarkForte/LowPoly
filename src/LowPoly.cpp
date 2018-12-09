@@ -24,6 +24,7 @@
 #include <thrust/host_vector.h>
 
 using namespace std;
+double total_comp_start = 0;
 
 vector<Point> InputFromFile(char* filePath, int &numVertices, int &rows, int &cols)
 {
@@ -48,12 +49,21 @@ vector<Point> InputFromImage(char* imgPath, int &numVertices, int &rows, int &co
         printf("Error loading image %s\n", imgPath);
         exit(-1);
     }
+
+    total_comp_start = CycleTimer::currentSeconds();
+
     rows = img.rows;
     cols = img.cols;
     int numPixel = rows * cols;
+    printf("Img Size: %d x %d\n", rows, cols);
+    // scale P to make result visually good
+    edgeP *= 2160.f / rows;
+    nonEdgeP *= 2160.f / rows;
+    boundP *= 2160.f / rows;
 
-    // get grad (edge)
+    double grad_start = CycleTimer::currentSeconds();
     cv::Mat grad = getGrad(img);
+    cout<<"Edge Detection Time: "<< (CycleTimer::currentSeconds() - grad_start) * 1000 <<"ms"<<endl;
 
     // // calculate threshold for selecting edge pixel and non-edge Pixel
     // int numEdgePix = 0;
@@ -70,20 +80,21 @@ vector<Point> InputFromImage(char* imgPath, int &numVertices, int &rows, int &co
     // float edgeP = (float) numEdgeV / numEdgePix;
     // float nonEdgeP = (float) numNonEdgeV / (numPixel - numEdgePix);
 
-    // select points on image
+    double vertex_start = CycleTimer::currentSeconds();
     vector<Point> vertices = selectVertices(grad, edgeP, nonEdgeP, boundP, edgeThresh, numVertices);
+    cout<<"Select Vertices Time: "<< (CycleTimer::currentSeconds() - vertex_start) * 1000 <<"ms"<<endl;
 
     // write the edge detection result and selected points to img
-    cv::Mat pts = cv::Mat(rows, cols, CV_32F, 0.0);
-    for (int i = 0; i < numVertices; i++)
-    {
-        int row = vertices[i].y;
-        int col = vertices[i].x;
-        pts.at<float>(row, col) = 255.0;
-    }
-    cv::imwrite("points.png", pts);
-    cv::Mat edges = grad * 255.0;
-    cv::imwrite("edges.png", edges);
+    // cv::Mat pts = cv::Mat(rows, cols, CV_32F, 0.0);
+    // for (int i = 0; i < numVertices; i++)
+    // {
+    //     int row = vertices[i].y;
+    //     int col = vertices[i].x;
+    //     pts.at<float>(row, col) = 255.0;
+    // }
+    // cv::imwrite("points.png", pts);
+    // cv::Mat edges = grad * 255.0;
+    // cv::imwrite("edges.png", edges);
 
     return vertices;
 }
@@ -98,24 +109,31 @@ void InputFromImageGPU(char* imgPath, int &numVertices, int &rows, int &cols, cv
         printf("Error loading image %s\n", imgPath);
         exit(-1);
     }
+
+    total_comp_start = CycleTimer::currentSeconds();
+    
     rows = img.rows;
     cols = img.cols;
     int numPixel = rows * cols;
+    printf("Img Size: %d x %d\n", rows, cols);
+    // scale P to make result visually good
+    edgeP *= 2160.f / rows;
+    nonEdgeP *= 2160.f / rows;
+    boundP *= 2160.f / rows;
 
-    // get grad (edge)
+    double grad_start = CycleTimer::currentSeconds();
     getGradGPU(img);
+    cout<<"Edge Detection Time: "<< (CycleTimer::currentSeconds() - grad_start) * 1000 <<"ms"<<endl;
 
-    // select points on image
+    double vertex_start = CycleTimer::currentSeconds();
     selectVerticesGPU(edgeThresh, edgeP, nonEdgeP, boundP, rows, cols);
+    cout<<"Select Vertices Time: "<< (CycleTimer::currentSeconds() - vertex_start) * 1000 <<"ms"<<endl;
 }
 
 
 int main(int argc, char **argv)
 {
-    double start = CycleTimer::currentSeconds();
-
     int rows, cols;
-
     char *imgPath;
     cv::Mat img;
     int numVertices = 0;     // only work in CPU mode
@@ -164,12 +182,13 @@ int main(int argc, char **argv)
         }
     }
 
-    vector<Triangle> triangles;
-
     if(useCPU)
     {
         cout<<"Using CPU"<<endl;
+        double start = CycleTimer::currentSeconds();
+
         vector<Point> vertices;
+        vector<Triangle> triangles;
 
         // read img, detect edge, select vertices
         if(fromFile)
@@ -183,18 +202,25 @@ int main(int argc, char **argv)
         triangles = DelauneyCPU(vertices, owner, rows, cols);
         cout<<"Delaunay Time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 
-        cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
-        cv::imwrite("voronoi.png", voronoi);
+        // cv::Mat voronoi = drawVoronoi(owner, rows, cols, numVertices);
+        // cv::imwrite("voronoi.png", voronoi);
 
-        cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
-        cv::imwrite("triangle_lines.png", triLine);
+        // cv::Mat triLine = drawTriangleLineOnImg(triangles, voronoi);
+        // cv::imwrite("triangle_lines.png", triLine);
 
+        double render_start = CycleTimer::currentSeconds();
         cv::Mat triImg = drawTriangle(triangles, img);
+        cout<<"Render Time: "<< (CycleTimer::currentSeconds() - render_start) * 1000 <<"ms"<<endl;
+
+        cout << "Total computation time: " << (CycleTimer::currentSeconds() - total_comp_start) * 1000 << " ms" << endl;
         cv::imwrite("triangle.png", triImg);
+        cout << "Total time: " << (CycleTimer::currentSeconds() - start) * 1000 << " ms" << endl;
     }
     else //Use CUDA
     {
         cout<<"Using CUDA"<<endl;
+        fakeInit(); // to initialize cuda
+        double start = CycleTimer::currentSeconds();
 
         // read img, detect edge, select vertices
         InputFromImageGPU(imgPath, numVertices, rows, cols, img, edgeP, nonEdgeP, boundP, edgeThresh);
@@ -203,10 +229,13 @@ int main(int argc, char **argv)
         DelauneyGPU(rows, cols);
         cout<<"Delaunay Time: "<< (CycleTimer::currentSeconds() - comp_start) * 1000 <<"ms"<<endl;
 
+        double render_start = CycleTimer::currentSeconds();
         cv::Mat triImg = drawTriangleGPU(img);
-        cv::imwrite("triangle.png", triImg);
-    }
+        cout<<"Render Time: "<< (CycleTimer::currentSeconds() - render_start) * 1000 <<"ms"<<endl;
 
-    cout << "Total time: " << (CycleTimer::currentSeconds() - start) * 1000 << " ms" << endl;
+        cout << "Total computation time: " << (CycleTimer::currentSeconds() - total_comp_start) * 1000 << " ms" << endl;
+        cv::imwrite("triangle.png", triImg);
+        cout << "Total time: " << (CycleTimer::currentSeconds() - start) * 1000 << " ms" << endl;
+    }
     return 0;
 }
