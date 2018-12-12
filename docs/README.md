@@ -34,15 +34,13 @@ All three parts can benefit from parallel execution on GPU. Among them, Delaunay
 
 This algorithm is straightforward, but it is hard to parallelize. The reason is that this algorithm is essentially iterative, and parallelizing it will introduce huge contention. We cannot add two points simultaneously if they are in the same triangle because both points want to modify it. This restriction severely hampers the potential for parallelism of this method.
 
-Some previous attempts used the divide and conquer algorithm to leverage the parallelism in it. For example, Prakash implemented an OpenMPI version of DT with the divide and conquer algorithm. The basic idea of the algorithm is to split the points into two areas, do DT in each area, then merge the points on the borders. Although natural to parallelize, this algorithm is much harder to implement, and the communication overhead between processors has great impact on the overall speedup. Even if data fits in a single machine, using 32 cores can only bring 5x speedup.
+Some previous attempts used the divide and conquer algorithm to leverage the parallelism in it. For example, Prakash implemented an [OpenMPI version of DT](https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf) with the divide and conquer algorithm. The basic idea of the algorithm is to split the points into two areas, do DT in each area, then merge the points on the borders. Although natural to parallelize, this algorithm is much harder to implement, and the communication overhead between processors has great impact on the overall speedup. Even if data fits in a single machine, using 32 cores can only bring 5x speedup.
 
-Since these methods are hard to parallelize, we used a third algorithm that is more suitable to parallel architecture. The basic idea is to first compute a Voronoi Graph (VG) of the original picture, which is known to be the dual problem of DT, then obtain the DT with the computed VG. Computing VG is suitable to parallelize on GPU. We will explain the details in the next section.
+Since these methods are hard to parallelize, we used a third algorithm that is more suitable for parallel machines. The basic idea is to first compute a Voronoi Graph (VG) of the original picture, which is known to be the dual problem of DT, then obtain the DT with the computed VG. Computing VG can be parallelized on GPU. We will explain the details in the next section.
 
 ## Methods
 
 ### Overview
-
-We used GHC machines with GTX 1080 GPU for experiments, and we developed the whole system with C++ and CUDA. We also used OpenCV for some helpers like reading and storing images.
 
 Here is an illustration of our workflow. It consists of several steps:
 
@@ -54,9 +52,11 @@ Here is an illustration of our workflow. It consists of several steps:
 
 ![](checkpoint/process.png)
 
+We developed the whole system with C++ and CUDA on GHC machines with GTX 1080 GPU. We also used OpenCV for some helpers like reading and storing images.
+
 ### Edge Detection
 
-
+(Todo)
 
 ### Voronoi Graph
 
@@ -81,27 +81,33 @@ Here is a illustration for the steps for the Jump-Flooding algorithm on three po
 
 ![](jump-flooding.PNG)
 
-This algorithm is very GPU friendly since we can parallel the computation by each pixel. We can map each pixel to a thread on GPU, and each thread looks at the eight neighbors and update their owner point. There will be no contention if we use double buffers to implement this algorithm, since the updating process is fully synchronous.
+This algorithm is very GPU friendly since we can parallel the computation by each pixel. We can map each pixel to a thread on GPU, and each thread looks at the eight neighbors and update their owner points. Each step size requires a kernel launch, so there will be $\log{N}$ kernel launches where $N$ is the larger size of the picture. We use double buffers to implement this algorithm, since the updating process is fully synchronous. There is no contention in this algorithm.
 
 ### Generating Triangles
 
-After getting the VG, there is a neat trick to generate the triangle mesh in a fully parallel way. It turns out that the pixel map is sufficient to construct the triangles. Specifically, our task is find a 2x2 square in the pixel map that has 3 or 4 different owners. A square of 3 owners suggests those 3 regions intersect here, so one triangle should be generated to connect the 3 regions. Similarly, a square of 4 owners suggests there should be two triangles to connect the 4 regions. Here is an illustration of this process. The number in the pixel refers to the number of owners in the 2x2 square.
+After getting the VG, there is a neat trick to generate the triangle mesh in a fully parallel way. It turns out that the pixel map is sufficient to construct the triangles. Specifically, our task is find 2x2 squares in the pixel map that have 3 or 4 different owners. A square of 3 owners suggests those 3 regions intersect here, so one triangle should be generated to connect the 3 regions. Similarly, a square of 4 owners suggests there should be two triangles to connect the 4 regions. Here is an illustration of this process. The number in the pixel refers to the number of owners in the 2x2 square.
 
 ![](generating-triangles.PNG)
 
-Since we cannot dynamically add triangles in CUDA, constructing the triangle mesh is a two step process. 
+Since we cannot dynamically add triangles in CUDA, constructing the triangle mesh is a two step process:
 
-First, we compute the total number of the triangles, and assign each pixel with their triangle index. This can be done by mapping each pixel to a thread, and each pixel checks itself and the three pixels on its right, bottom and bottom-right. If the total number of different owners is 3, then mark the pixel as 1; or if it is 4, them mark the pixel as 2. Otherwise it is 0. 
+First, we compute the total number of the triangles, and assign each pixel with their triangle indices. This can be done by mapping each pixel to a thread, then each pixel checks itself and the three pixels on its right, bottom and bottom-right. If the total number of different owners is 3, then mark the pixel as 1; or if it is 4, them mark the pixel as 2. Otherwise it is 0. 
 
 After that, we produce an exclusive scan to get the prefix sum of the pixel map. The exclusive scan gives the total number of triangles and the index of each pixel. For example, if prefix_sum[pixel_A] = 10, and prefix_sum[pixel_next_to_pixel_A] = 12, we know that pixel_A has two triangles: the 10th and the 11th. We use `thrust::exclusive_scan` to carry out this process.
 
 At last, we allocate an array whose length is equal to the number of triangles, then launch another kernel in which every pixel puts their triangle to the corresponding indices.  
 
-The whole process in generating triangles does not involve any contention, since all information a pixel relies on is the pixel map generated in the previous step.
+The whole process in generating triangles does not contain any contention, since all information a pixel relies on is the pixel map generated in the previous step.
 
 ### Rendering
 
+(Todo)
 
+### Side Notes
+
+* It is worth noting that our algorithm is especially suitable for generating low poly arts instead of computing general Delaunay Triangulation. Computing DT in this methods requires additional steps on mapping the points to a fixed sized texture, restoring the mapped points to their original coordinates, handling missing points, and flip edges that violates Delaunay properties. Fortunately, generating low poly arts essentially has a texture and all points are on the texture from the very beginning, so it is unnecessary to map the points, which reduces a lot of trouble. 
+* Jump-Flooding algorithm does not always produce perfect Voronoi Graphs. It can sometimes produce "islands" like the following situation. However, it rarely happens and we never observed it crashing the output picture during experiments, so we did not include the step that fixes the islands. This can also be done by parallel pixel examination. 
+* Sometimes our output picture will have some missing triangles on edges (like the output image of the first picture in the report). In order to fix the edges, a standard way is to transfer the image back to CPU and fit a convex hull of all the points. However, we think it is unnecessary because small missing triangles does not hurt the output quality much, but transferring it back and fit a convex hull will significantly increase the computation time. 
 
 ## Results
 
@@ -115,11 +121,11 @@ The whole process in generating triangles does not involve any contention, since
 
 As shown in the above form, we tested our current algorithm with a 1920x1080 image and 1000 random vertices. NI here means "Not Implemented". We are able to achieve about 4x overall speedup for now, compared to `-O3` compiled CPU code.  We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program. Also we are using `std::clock()` for clocking now. We may switch to a higher precision timer, like the `CycleTimer` used in HW2, to get more accurate profiling data.
 
-### Failed Attempts
+### Failed Attempts and Ideas
 
-shared memory
+* In parallel triangle generation, we found that a pixel can be accessed multiple times. Therefore, we considered loading the owner array to the block's shared memory before the actual computation. However, we tried it out and the performance did not improve. We suppose the reason is that when reading pixels into shared memory, the workload is actually imbalanced, because while the majority of threads just reads their own pixels, the threads on borders will have to read 2 pixels, and the bottom-right thread will have to read 4. In that way, the overhead introduced by loading data into shared memory will cancel out the benefit of accelerated memory access.
 
-parallel by row
+* Parallel by row?
 
 ## Goals Summary
 
