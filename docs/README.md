@@ -56,7 +56,13 @@ We developed the whole system with C++ and CUDA on GHC machines with GTX 1080 GP
 
 ### Edge Detection
 
-(Todo)
+To better preserve the texture in original image, we assigned higher probability for selecting vertices on edges. We implemented Sobel edge detector in CUDA to find edges. We parallel by pixel, calculate horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edgeness score. To further increase efficiency, we used linear appriximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient.
+
+![](sobel.png)
+
+### Vertices Selection
+
+Vertices selection takes image gradients (edge detection result) as input and output a same size image where each pixel is either -1(not selected) or a Point(row, col) structure (this pixel is selected). Every pixel has a probability to be selected as a vertex. For edge pixels detected in the edge detection process, we give them higher probability to better preserve the texture of original image. For pixels at the boundary of the image, we also give them higher probability to make our triangulation algorithm better cover the boundary of the image. We used "curand" package to generate random numbers. Because our algorithm doesn't require high quality random numbers, we set the scramble and offset values to be both zero: `curand_init(id, 0, 0, &state[id])` for maximum speed. We paralled the vertices selection process by pixel.
 
 ### Voronoi Graph
 
@@ -101,7 +107,7 @@ The whole process in generating triangles does not contain any contention, since
 
 ### Rendering
 
-(Todo)
+We first tried to parallel by pixel and loop through triangles. However, the performance was bad. We quickly realized that the triangles a re not overlapping with each other so that we don't need to worry about the order of triangles. We then decided to parallel by triangles and for each triangle, only loop through local pixels that locate in its bounding box. To dertermine if a points is inside a triangle, we implemented the following procedure: given a point and a triangle, (i) loop through the three vertices of the triangle in any order (clockwise or counter-clockwise) (ii) every pair of points determine a directed edges, for each edge, determine if the point is to its left or right (iii) if the point is to the same side of all three edges, then it is inside the triangel. If a pixel is inside a triangle, we color it with the color defined at the center of the triangle.
 
 ### Side Notes
 
@@ -111,23 +117,37 @@ The whole process in generating triangles does not contain any contention, since
 
 ## Results
 
+![](results.png)
+![](speedup.png)
+
+As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup. 
+
+![](timescale.png)
+
+As shown in the above graph, each part of the GPU computation time grows linearly with the picture size. The number of vertices doesn't influence the speed in our implementation.
 
 
-|         | Edge Detection | Select Vertices | Generate Voronoi | Triangulation | Rendering | Other | Total |
-| ------- | -------------- | --------------- | ---------------- | ------------- | --------- | ----- | ----- |
-| CPU -O0 | 60             | 50              | 6710             | 1430          | 180       | 60    | 8490  |
-| CPU -O3 | 70             | 80              | 1300             | 440           | 60        | 40    | 1990  |
-| GPU -O3 | 0.2            | 2.4             | 30               | 10            | NI        |       | 350   |
+![](pi.png)
+Above image shows a breakdown of running time on three pictures. DT computation accounts for the largest part for all of them. 
 
-As shown in the above form, we tested our current algorithm with a 1920x1080 image and 1000 random vertices. NI here means "Not Implemented". We are able to achieve about 4x overall speedup for now, compared to `-O3` compiled CPU code.  We have not fine tuned the GPU version performance yet, but we suppose it is due to memory transferring from CPU to GPU. We believe a lot of memory transferring can be saved after we implemented the GPU version of edge detection and triangle rendering, which will improve the performance of our program. Also we are using `std::clock()` for clocking now. We may switch to a higher precision timer, like the `CycleTimer` used in HW2, to get more accurate profiling data.
+### Test on Video Conversion
+
+We further tried to test our converter on video. We load each frame of a video in sequential order and convert it to low-poly style image, then write it in memory. Because all frames in a video share the same resolution, many variables can be reused to further save some time. We tested it on a 720p video and a 1080p video respectively. The results are: 
+
+|         | ms / frame |  FPS  | 
+| ------- | ---------  | ----- | 
+| 720p    | 39.27      | 25.5  | 
+| 1080p   | 69.42      | 14.4  | 
 
 ### Failed Attempts and Ideas
 
 * In parallel triangle generation, we found that a pixel can be accessed multiple times. Therefore, we considered loading the owner array to the block's shared memory before the actual computation. However, we tried it out and the performance did not improve. We suppose the reason is that when reading pixels into shared memory, the workload is actually imbalanced, because while the majority of threads just reads their own pixels, the threads on borders will have to read 2 pixels, and the bottom-right thread will have to read 4. In that way, the overhead introduced by loading data into shared memory will cancel out the benefit of accelerated memory access.
 
+* In vertices selection part, our first version has only one random number generator and we protected it by a mutex. However, this results in a huge amount of contension because every pixel needs a random number and every batch of pixels reach to random number generation at almost the same time. To remove contension, we then decided to assign a random number generator for each pixel. We tried to used `curand_init(id, id, id, &state[id])` (individual seed + scramble + offset) to initialize the generators. It generates high quality random numbers. However, simply initialize the random number generators on a 1080p image took about 15 seconds. Actually, our algorithm doesn't require high quality random numbers. So, we set scramble and offset to be 0 when initialize generators. This results in a much faster initialization, which takes only ~2ms.
+
 * Parallel by row?
 
-## Goals Summary
+<!--## Goals Summary
 
 ### Expected Goals (Plan to achieve):
 
@@ -142,10 +162,14 @@ As shown in the above form, we tested our current algorithm with a 1920x1080 ima
 
 ### Ideal Goals (Hope to achieve):
 
-* Make a close real-time triangulation converter for video, and achieve better speedup on videos than processing individual frames since the frames in video are correlated.
+* Make a close real-time triangulation converter for video, and achieve better speedup on videos than processing individual frames since the frames in video are correlated.-->
 
 ## References
 
-- We are going to start from scratch for this project. There are some former implementations, but they are too complicated. If we have time, we can compare the performance with some of these versions.
-- There are some former attempts to parallelize Delaunay Triangulation with CPU, like [https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf](https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf) which uses OpenMPI to parallelize the algorithm. We will compare our performance with this version. We expect to achieve higher speedup than it.
-- We are referring to [http://www.cs.utah.edu/~maljovec/files/DT_on_the_GPU_Print.pdf](http://www.cs.utah.edu/~maljovec/files/DT_on_the_GPU_Print.pdf), [http://rykap.com/graphics/skew/2016/02/25/voronoi-diagrams/](http://rykap.com/graphics/skew/2016/02/25/voronoi-diagrams/) and [https://www.comp.nus.edu.sg/~tants/delaunay/GPUDT.pdf](https://www.comp.nus.edu.sg/~tants/delaunay/GPUDT.pdf) as guidance to our implementation. 
+[1] Zhang W, Xiao S, Shi X. Low-poly style image and video processing
+
+[2] Qi M, Cao T T, Tan T S. Computing 2D constrained Delaunay triangulation using the GPU
+
+[3] Guodong R., Tiow-Seng T, Thanh-Tung C, Stephanus, Computing Two-dimensional Delaunay Triangulation Using Graphic Hardware
+
+[4] V. Fuetterling, C. Lojewski, and F.-J. Pfreundt High-Performance Delaunay Triangulations for Many-Core Computers
