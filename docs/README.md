@@ -59,7 +59,8 @@ We developed the whole system from scratch with C++ and CUDA on GHC machines wit
 
 To better preserve the texture in the original image, we need to find edges in the image. We implemented the Sobel edge detector in CUDA to find edges. It calculates the horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edginess score. To further increase efficiency, we used linear approximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient. The algorithm reads from the original image and writes its output to a new empty image. Because there is no contention, we could simply parallel the process by pixel. We didn't observe more speedup using shared memory for edge detection. The reason is that our filter size is small hence we only reuse pixel values a few times. This reuse can barely compensate the time of copying data into shared memory. 
 
-![](sobel.png)
+<div style="text-align:center"><img src ="sobel.png" /></div>
+<!--![](sobel.png)-->
 
 ### Vertices Selection
 
@@ -69,7 +70,8 @@ Vertices selection takes image gradients (edge detection result) as input and ou
 
 For triangulation, we used an algorithm that is proposed by [Rong et al](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.632.1946&rep=rep1&type=pdf). The basic idea is, instead of directly computing DT, we first compute the [Voronoi Graph (VG)](https://en.wikipedia.org/wiki/Voronoi_diagram) of it on the picture. VG is a partition of a plane into regions according to their nearest points. VG is the dual problem of DT. If we obtained a VG (dashed lines), then connect the points of adjacent regions of the diagram gives us the DT (solid lines). 
 
-![VD and its corresponding DT](VDDT.gif)
+<div style="text-align:center"><img src ="VDDT.gif" /></div>
+<!--![VD and its corresponding DT](VDDT.gif)-->
 
 Computing VG on a picture is done by the Jump-Flooding algorithm, which will mark each pixel with its nearest neighbor point. In each iteration with a step size $k$, a pixel $(x, y)$ will look at its eight neighbors $(x+i, y+j)$ where $i, j \in \{-k, 0, +k\}$, and try to find a closer point to it. The pseudo code for Jump-Flooding algorithm is:
 
@@ -94,7 +96,8 @@ This algorithm is very GPU friendly since we can parallel the computation by eac
 
 After getting the VG, there is a neat trick to generate the triangle mesh in a fully parallel way. It turns out that the pixel map is sufficient to construct the triangles. Specifically, our task is to find 2x2 squares in the pixel map that have 3 or 4 different owners. A square of 3 owners suggests those 3 regions intersect here, so one triangle should be generated to connect the 3 regions. Similarly, a square of 4 owners suggests there should be two triangles to connect the 4 regions. Here is an illustration of this process. The number in the pixel refers to the number of owners in the 2x2 square.
 
-![](generating-triangles.PNG)
+<div style="text-align:center"><img src ="generating-triangles.PNG" /></div>
+<!--![](generating-triangles.PNG)-->
 
 Since we cannot dynamically add triangles in CUDA, constructing the triangle mesh is a three-step process:
 
@@ -158,10 +161,14 @@ The above image shows that the overall algorithm is not sensitive to the number 
 
 We further tried to test our converter on video. We load each frame of a video in sequential order and convert it to low-poly style image, then write it in memory. Because all frames in a video share the same resolution, many variables can be reused to further save some time. We tested it on a 720p video and a 1080p video respectively. The results are: 
 
+<center>
+
 |         | ms / frame |  FPS  |
 | ------- | ---------  | ----- |
 | 720p    | 39.27      | 25.5  |
 | 1080p   | 69.42      | 14.4  |
+
+</center>
 
 ### Failed Attempts and Ideas
 
