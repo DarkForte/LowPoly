@@ -57,7 +57,7 @@ We developed the whole system from scratch with C++ and CUDA on GHC machines wit
 
 ### Edge Detection
 
-To better preserve the texture in the original image, we need to find edges in the image. We implemented the Sobel edge detector in CUDA to find edges. It calculates the horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edginess score. To further increase efficiency, we used linear approximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient. The algorithm read from the original image and write its output to a new empty image. Because there is no contention, we could simply parallel the process by pixel. We didn't observe more speedup using shared memory for edge detection. The reason is that our filter size is small hence we only reuse pixel values a few times. This reuse can barely compensate the time of copying data into shared memory. 
+To better preserve the texture in the original image, we need to find edges in the image. We implemented the Sobel edge detector in CUDA to find edges. It calculates the horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edginess score. To further increase efficiency, we used linear approximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient. The algorithm reads from the original image and writes its output to a new empty image. Because there is no contention, we could simply parallel the process by pixel. We didn't observe more speedup using shared memory for edge detection. The reason is that our filter size is small hence we only reuse pixel values a few times. This reuse can barely compensate the time of copying data into shared memory. 
 
 ![](sobel.png)
 
@@ -96,7 +96,7 @@ After getting the VG, there is a neat trick to generate the triangle mesh in a f
 
 ![](generating-triangles.PNG)
 
-Since we cannot dynamically add triangles in CUDA, constructing the triangle mesh is a two-step process:
+Since we cannot dynamically add triangles in CUDA, constructing the triangle mesh is a three-step process:
 
 First, we compute the total number of the triangles and assign each pixel with their triangle indices. This can be done by mapping each pixel to a thread, then each pixel checks itself and the three pixels on its right, bottom, and bottom-right. If the total number of different owners is 3, then mark the pixel as 1; or if it is 4, them mark the pixel as 2. Otherwise, it is 0. 
 
@@ -110,7 +110,7 @@ The whole process in generating triangles does not contain any contention since 
 
 We first tried to parallel by pixel and loop through triangles. However, the performance was bad. We quickly realized that the triangles are not overlapping with each other so that we don't need to worry about the order of triangles. We then decided to parallel by triangles and for each triangle, only loop through local pixels that locate in its bounding box. To determine if a point is inside a triangle, we implemented the following procedure: given a point and a triangle, (i) loop through the three vertices of the triangle in any order (clockwise or counter-clockwise) hence every pair of vertices determines a directed edge (ii) for each edge, determine if the point is to its left or right side (iii) if the point is to the same side of all three edges, then it is inside the triangle. If a point is inside a triangle, we color it with the color defined at the center of the triangle.
 
-### Important Data Strectures
+### Important Data Structures
 
 * Point: 2-D point with integer x (column) and y (row) values
 * Triangle: A triangle contains 3 points and a center (the weight center of three points)
@@ -130,7 +130,7 @@ We first tried to parallel by pixel and loop through triangles. However, the per
 ![](results.png)
 ![](speedup.png)
 
-As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When the image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup on computation time. If we take Cuda initialization time and disk I/O time into consideration, our algorithm achieved ~24.4 times speedup. We didn't observe a huge speed up on rendering. The reason is the triangles have different size (smallest is only 1 pixel) and shape so that the workloads of different threads are heavily unbalanced.
+As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When the image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup on computation time. If we take Cuda initialization time and disk I/O time into consideration, our algorithm achieved ~24.4 times speedup. We didn't observe a huge speed up on rendering. The reason is the triangles have different sizes (smallest is only 1 pixel) and shapes so that the workloads of different threads are heavily unbalanced.
 
 #### Factors that limited our speedup:
 * Multiple running phases and kernel launching. The triangulation step contains multiple phases, each phase cannot start until the previous phase completes. In addition, some phases require multiple kernel launching, like generating Voronoi Graphs requires launching a kernel for every iteration. The synchronization prevents us from reaching perfect speedup. 
@@ -151,6 +151,7 @@ As shown in the above graph, each part of the GPU computation time grows linearl
 The above image shows a breakdown of running time in three pictures. DT computation accounts for the largest part for all of them. 
 
 ![](time-vertices.png)
+
 The above image shows that the overall algorithm is not sensitive to the number of edges. We tested on 1080p image and number of vertices ranges from 1x to 500x. But we do observe a decrease in render time (from 8.19 to 4.81) as the number of vertices increase. The reason is as the number of vertices increase, the number of triangles also increase. This will result in a smaller average triangle size. As triangle size gets smaller, the search area of each thread gets smaller. And most importantly, as the search area gets smaller, the number of "not in triangle" pixels searched by each thread decrease, which results in the speedup.  
 
 ### Test on Video Conversion
@@ -175,7 +176,10 @@ We further tried to test our converter on video. We load each frame of a video i
 
 #### Weichen Ke (50%)
 
-* 
+* Propose the workflow for low poly image generation
+* Design the algorithm for parallel triangulation and rendering
+* Implement the CPU and GPU version of the triangulation process (Voronoi Graph + Triangle generation)
+* Fine-tune the performance of triangulation on GPU
 
 #### Zhengjia Huang (50%)
 
