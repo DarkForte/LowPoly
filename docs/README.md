@@ -110,6 +110,12 @@ The whole process in generating triangles does not contain any contention, since
 
 We first tried to parallel by pixel and loop through triangles. However, the performance was bad. We quickly realized that the triangles a re not overlapping with each other so that we don't need to worry about the order of triangles. We then decided to parallel by triangles and for each triangle, only loop through local pixels that locate in its bounding box. To dertermine if a points is inside a triangle, we implemented the following procedure: given a point and a triangle, (i) loop through the three vertices of the triangle in any order (clockwise or counter-clockwise) hence every pair of vertices determines a directed edge (ii) for each edge, determine if the point is to its left or right side (iii) if the point is to the same side of all three edges, then it is inside the triangel. If a point is inside a triangle, we color it with the color defined at the center of the triangle.
 
+### Important Data Strectures
+
+* Point: 2-D point with intiger x (column) and y (row) values
+* Triangle: A triangle contains 3 points and a center (the weight center of three points)
+* Image: 2-D array sotred in contiguous memory space. Each pixel can be a char (gray image), three chars (rgb image), a point (voronoi map), etc.
+
 ### Side Notes
 
 * It is worth noting that our algorithm is especially suitable for generating low poly arts instead of computing general Delaunay Triangulation. Computing DT in this methods requires additional steps on mapping the points to a fixed sized texture, restoring the mapped points to their original coordinates, handling missing points, and flip edges that violates Delaunay properties. Fortunately, generating low poly arts essentially has a texture and all points are on the texture from the very beginning, so it is unnecessary to map the points, which reduces a lot of trouble. 
@@ -118,18 +124,32 @@ We first tried to parallel by pixel and loop through triangles. However, the per
 
 ## Results
 
+### Speedup
+
 ![](results.png)
 ![](speedup.png)
 
 As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup on computation time. If we take cuda initialization time and disk I/O time into consideration, our algorithm achieved ~24.4 times speedup. We didn't observe a huge speed up on rendering. The reason is the triangles have different size (smallest is only 1 pixel) and shape so that the workloads of different threads are heavily unbalanced.
 
+#### Factors that limited our speedup:
+* Multiple running phases and kernel launching;
+* Workload imbalance when generating and rendering triangles.
+
+#### Factors that does not limit our speedup:
+* Data transfer. Only taking <1% running time.
+* Communication. There is no contention in our algorithm.
+
+### Time Consumption
+
 ![](timescale.png)
 
 As shown in the above graph, each part of the GPU computation time grows linearly with the picture size. The number of vertices doesn't influence the speed in our implementation.
 
-
 ![](pi.png)
 Above image shows a breakdown of running time on three pictures. DT computation accounts for the largest part for all of them. 
+
+![](time-vertices.png)
+The above image shows that the overall algorithm is not sensitive to number of edges. We tested on 1080p image and number of vertices ranges from 1x to 500x. But we do observe a decrease in render time (from 8.19 to 4.81) as number of vertices increase. The reason is as number of vertices increase, the number of triangles also increase. This will result in smaller average triangle size. As triangle size gets smaller, the search area of each thread gets smaller. And most importantly, as the seach area gets smaller, the number of "not in triangle" pixels searched by each thread decrease, which results in the speedup.  
 
 ### Test on Video Conversion
 
@@ -146,7 +166,8 @@ We further tried to test our converter on video. We load each frame of a video i
 
 * In vertices selection part, our first version has only one random number generator and we protected it by a mutex. However, this results in a huge amount of contension because every pixel needs a random number and every batch of pixels reach to random number generation at almost the same time. To remove contension, we then decided to assign a random number generator for each pixel. We tried to used `curand_init(id, id, id, &state[id])` (individual seed + scramble + offset) to initialize the generators. It generates high quality random numbers. However, simply initialize the random number generators on a 1080p image took about 15 seconds. Actually, our algorithm doesn't require high quality random numbers. So, we set scramble and offset to be 0 when initialize generators. This results in a much faster initialization, which takes only ~2ms.
 
-* Parallel by row?
+* We tried to increase granularity (render 2 or 4 triangles in each thread) to solve the unbalanced workload and increase the speedup in rendering. However, as we increase the granularity, the speed decreased. We think the reason is rendering is bottlenecked by the largest triangle. As we increase granularity, the equivelant triangle size of the most unlucky thread (has many large triangles) will increase, which will take longer to render. 
+
 
 <!--## Goals Summary
 
