@@ -1,12 +1,13 @@
 # Parallel Low Poly Style Image/Video Converter
+###Weichen Ke & Zhengjia Huang
 
 at: https://darkforte.github.io/LowPoly/
 
-[**Project Checkpoint**](https://darkforte.github.io/LowPoly/checkpoint/checkpoint.html)
+<!--[**Project Checkpoint**](https://darkforte.github.io/LowPoly/checkpoint/checkpoint.html)-->
 
 ## Summary
 
-We implemented a parallel low poly style image converter on CUDA. It accepts a picture of any size and converts it to a composition of many single colored triangles. We implemented the workflow of the converter on both CPU and CUDA and tested it on pictures with different sizes. Experiments showed that our CUDA implementation can achieve ~50x speedup compared to the CPU version. 
+We implemented a parallel low poly style image converter on CUDA. It accepts a picture of any size and converts it to a composition of many single colored triangles. We implemented the workflow of the converter on both CPU and CUDA and tested it on pictures and videos with different sizes. Experiments showed that our CUDA implementation can achieve ~50x speedup compared to the CPU version when image is large. And our video version can achieve close to realtime speed (~25fps) on 720p video. 
 
 ## Background and Motivation
 
@@ -18,7 +19,7 @@ The main workflow of making a low poly style picture involves three steps:
 
 * **Point Selection** spreads a series of points on the picture and preserves the structure of the image. The easiest way to do it is to spread the points uniformly on the picture. However, in order to preserve the picture structure, it would be better to first extract the edges in the picture, then spread more points on the edges than the other parts.
 
-* **Triangulation** connects the points to form a triangle mesh. The most common algorithm is Delaunay Triangulation (DT). This is the most tricky part in the workflow, which will be explained in detail later.
+* **Triangulation** connects the points to form a non-overlapping triangle mesh. The most common algorithm is Delaunay Triangulation (DT). This is the most tricky part in the workflow, which will be explained in detail later.
 
 * **Rendering** re-draws the picture using the triangle mesh. Usually it renders each triangle to the color at its center.
 
@@ -32,7 +33,7 @@ All three parts can benefit from parallel execution on GPU. Among them, Delaunay
 
 3. Keep adding the points. After adding all the points, removing the super triangle gives the DT of the points.
 
-This algorithm is straightforward, but it is hard to parallelize. The reason is that this algorithm is essentially iterative, and parallelizing it will introduce huge contention. We cannot add two points simultaneously if they are in the same triangle because both points want to modify it. This restriction severely hampers the potential for parallelism of this method.
+This algorithm is straightforward, but it is hard to parallelize. The reason is that this algorithm is essentially iterative, and parallelizing it will introduce huge contention. For example, because the algorithm follows a coarse to fine procedure, many points will locate inside large triangles during the early stage. We cannot explore two points simultaneously if they are in the same triangle, because both points want to divide the triangle and this will result in overlapping edges. This restriction severely hampers the potential for parallelism of this method.
 
 Some previous attempts used the divide and conquer algorithm to leverage the parallelism in it. For example, Prakash implemented an [OpenMPI version of DT](https://cse.buffalo.edu/faculty/miller/Courses/CSE633/adarsh-prakash-Spring-2017-CSE633.pdf) with the divide and conquer algorithm. The basic idea of the algorithm is to split the points into two areas, do DT in each area, then merge the points on the borders. Although natural to parallelize, this algorithm is much harder to implement, and the communication overhead between processors has great impact on the overall speedup. Even if data fits in a single machine, using 32 cores can only bring 5x speedup.
 
@@ -52,17 +53,17 @@ Here is an illustration of our workflow. It consists of several steps:
 
 ![](checkpoint/process.png)
 
-We developed the whole system with C++ and CUDA on GHC machines with GTX 1080 GPU. We also used OpenCV for some helpers like reading and storing images.
+We developed the whole system from scratch with C++ and CUDA on GHC machines with GTX 1080 GPU. We also used OpenCV for some helpers like CPU edge detection, reading and storing images/videos.
 
 ### Edge Detection
 
-To better preserve the texture in original image, we assigned higher probability for selecting vertices on edges. We implemented Sobel edge detector in CUDA to find edges. We parallel by pixel, calculate horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edgeness score. To further increase efficiency, we used linear appriximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient.
+To better preserve the texture in original image, we need to find edges in the image. We implemented Sobel edge detector in CUDA to find edges. It calculates horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edgeness score. To further increase efficiency, we used linear appriximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient. The algorithm read from original image and write its output to a new empty image. Because there is no contension, we could simply parallel the process by pixel. We didn't observe more speedup using shared memory for edge detection. The reason is because our filter size is small hence we only reuse pixel values a few times. This reuse can barely compensate the time of copying data into shared memory. 
 
 ![](sobel.png)
 
 ### Vertices Selection
 
-Vertices selection takes image gradients (edge detection result) as input and output a same size image where each pixel is either -1(not selected) or a Point(row, col) structure (this pixel is selected). Every pixel has a probability to be selected as a vertex. For edge pixels detected in the edge detection process, we give them higher probability to better preserve the texture of original image. For pixels at the boundary of the image, we also give them higher probability to make our triangulation algorithm better cover the boundary of the image. We used "curand" package to generate random numbers. Because our algorithm doesn't require high quality random numbers, we set the scramble and offset values to be both zero: `curand_init(id, 0, 0, &state[id])` for maximum speed. We paralled the vertices selection process by pixel.
+Vertices selection takes image gradients (edge detection result) as input and outputs a same size image where each pixel is set to either -1(not selected) or a Point(row, col) structure (this pixel is selected). Every pixel has a probability to be selected as a vertex. For edge pixels detected in the edge detection process, we give them higher probability to better preserve the texture of original image. For pixels at the boundary of the image, we also give them higher probability to make sure our triangulation algorithm better cover the boundary of the image. We used "curand" package to generate random numbers. Because our algorithm doesn't require high quality random numbers, we set the scramble and offset values to be both zero: `curand_init(id, 0, 0, &state[id])` for maximum speed. We paralled the vertices selection process by pixel.
 
 ### Voronoi Graph
 
@@ -107,20 +108,20 @@ The whole process in generating triangles does not contain any contention, since
 
 ### Rendering
 
-We first tried to parallel by pixel and loop through triangles. However, the performance was bad. We quickly realized that the triangles a re not overlapping with each other so that we don't need to worry about the order of triangles. We then decided to parallel by triangles and for each triangle, only loop through local pixels that locate in its bounding box. To dertermine if a points is inside a triangle, we implemented the following procedure: given a point and a triangle, (i) loop through the three vertices of the triangle in any order (clockwise or counter-clockwise) (ii) every pair of points determine a directed edges, for each edge, determine if the point is to its left or right (iii) if the point is to the same side of all three edges, then it is inside the triangel. If a pixel is inside a triangle, we color it with the color defined at the center of the triangle.
+We first tried to parallel by pixel and loop through triangles. However, the performance was bad. We quickly realized that the triangles a re not overlapping with each other so that we don't need to worry about the order of triangles. We then decided to parallel by triangles and for each triangle, only loop through local pixels that locate in its bounding box. To dertermine if a points is inside a triangle, we implemented the following procedure: given a point and a triangle, (i) loop through the three vertices of the triangle in any order (clockwise or counter-clockwise) hence every pair of vertices determines a directed edge (ii) for each edge, determine if the point is to its left or right side (iii) if the point is to the same side of all three edges, then it is inside the triangel. If a point is inside a triangle, we color it with the color defined at the center of the triangle.
 
 ### Side Notes
 
 * It is worth noting that our algorithm is especially suitable for generating low poly arts instead of computing general Delaunay Triangulation. Computing DT in this methods requires additional steps on mapping the points to a fixed sized texture, restoring the mapped points to their original coordinates, handling missing points, and flip edges that violates Delaunay properties. Fortunately, generating low poly arts essentially has a texture and all points are on the texture from the very beginning, so it is unnecessary to map the points, which reduces a lot of trouble. 
 * Jump-Flooding algorithm does not always produce perfect Voronoi Graphs. It can sometimes produce "islands" like the following situation. However, it rarely happens and we never observed it crashing the output picture during experiments, so we did not include the step that fixes the islands. This can also be done by parallel pixel examination. 
-* Sometimes our output picture will have some missing triangles on edges (like the output image of the first picture in the report). In order to fix the edges, a standard way is to transfer the image back to CPU and fit a convex hull of all the points. However, we think it is unnecessary because small missing triangles does not hurt the output quality much, but transferring it back and fit a convex hull will significantly increase the computation time. 
+* Sometimes our output picture will have some missing triangles on boundaries (like the output image of the second picture in the report). In order to fix the edges, a standard way is to transfer the image back to CPU and fit a convex hull of all the points. However, we think it is unnecessary because small missing triangles does not hurt the output quality much, but transferring it back and fit a convex hull will significantly increase the computation time. 
 
 ## Results
 
 ![](results.png)
 ![](speedup.png)
 
-As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup. 
+As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup on computation time. If we take cuda initialization time and disk I/O time into consideration, our algorithm achieved ~24.4 times speedup. We didn't observe a huge speed up on rendering. The reason is the triangles have different size (smallest is only 1 pixel) and shape so that the workloads of different threads are heavily unbalanced.
 
 ![](timescale.png)
 
