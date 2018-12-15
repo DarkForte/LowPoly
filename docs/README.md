@@ -1,7 +1,7 @@
 # Parallel Low Poly Style Image/Video Converter
-###Weichen Ke & Zhengjia Huang
+### Weichen Ke & Zhengjia Huang
 
-at: https://darkforte.github.io/LowPoly/
+at: [https://darkforte.github.io/LowPoly/](https://darkforte.github.io/LowPoly/)
 
 <!--[**Project Checkpoint**](https://darkforte.github.io/LowPoly/checkpoint/checkpoint.html)-->
 
@@ -88,7 +88,7 @@ Here is a illustration for the steps for the Jump-Flooding algorithm on three po
 
 ![](jump-flooding.PNG)
 
-This algorithm is very GPU friendly since we can parallel the computation by each pixel. We can map each pixel to a thread on GPU, and each thread looks at the eight neighbors and update their owner points. Each step size requires a kernel launch, so there will be $\log{N}$ kernel launches where $N$ is the larger size of the picture. We use double buffers to implement this algorithm, since the updating process is fully synchronous. There is no contention in this algorithm.
+This algorithm is very GPU friendly since we can parallel the computation by each pixel. We can map each pixel to a thread on GPU, and each thread looks at the eight neighbors and update their owner points. Each step size requires a kernel launch, so there will be $\log{N}$ kernel launches where $N$ is the larger size of the picture. We can use double buffers to implement this algorithm, since the updating process is fully synchronous. There is no contention in this algorithm. (In practice, we did not use double buffering. See side notes below for details.)
 
 ### Generating Triangles
 
@@ -112,14 +112,15 @@ We first tried to parallel by pixel and loop through triangles. However, the per
 
 ### Important Data Strectures
 
-* Point: 2-D point with intiger x (column) and y (row) values
+* Point: 2-D point with integer x (column) and y (row) values
 * Triangle: A triangle contains 3 points and a center (the weight center of three points)
 * Image: 2-D array sotred in contiguous memory space. Each pixel can be a char (gray image), three chars (rgb image), a point (voronoi map), etc.
 
 ### Side Notes
 
-* It is worth noting that our algorithm is especially suitable for generating low poly arts instead of computing general Delaunay Triangulation. Computing DT in this methods requires additional steps on mapping the points to a fixed sized texture, restoring the mapped points to their original coordinates, handling missing points, and flip edges that violates Delaunay properties. Fortunately, generating low poly arts essentially has a texture and all points are on the texture from the very beginning, so it is unnecessary to map the points, which reduces a lot of trouble. 
+* It is worth noting that our triangulation algorithm is especially suitable for generating low poly arts instead of computing general Delaunay Triangulation. Computing general DT in this method requires additional steps on mapping the points to and from a fixed sized texture. Doing so will also include steps like restoring the mapped points to their original coordinates, handling missing points, and flipping edges that violates Delaunay properties. Fortunately, generating low poly arts essentially has a texture and all points are on the texture from the very beginning, so it is unnecessary to map the points, which reduces a lot of trouble. 
 * Jump-Flooding algorithm does not always produce perfect Voronoi Graphs. It can sometimes produce "islands" like the following situation. However, it rarely happens and we never observed it crashing the output picture during experiments, so we did not include the step that fixes the islands. This can also be done by parallel pixel examination. 
+* In theory, Jump-Flooding algorithm should be implemented with double buffers. However, at first we forgot to implement double buffering, but we always observed correct outputs. We assume the reason is that, without double buffering, the worst outcome of a pixel is to read the other pixel's result of the next iteration, which will not affect the correctness of the algorithm. We are not able to prove that it is 100% correct, but our experiments with this method never output corrupted images. Later on, we implemented double buffering and observed the same output quality with 10% drop on performance, because of extra memory allocation and global memory access. Therefore, we decide to turn in the version without double buffering in the end.
 * Sometimes our output picture will have some missing triangles on boundaries (like the output image of the second picture in the report). In order to fix the edges, a standard way is to transfer the image back to CPU and fit a convex hull of all the points. However, we think it is unnecessary because small missing triangles does not hurt the output quality much, but transferring it back and fit a convex hull will significantly increase the computation time. 
 
 ## Results
@@ -132,12 +133,12 @@ We first tried to parallel by pixel and loop through triangles. However, the per
 As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup on computation time. If we take cuda initialization time and disk I/O time into consideration, our algorithm achieved ~24.4 times speedup. We didn't observe a huge speed up on rendering. The reason is the triangles have different size (smallest is only 1 pixel) and shape so that the workloads of different threads are heavily unbalanced.
 
 #### Factors that limited our speedup:
-* Multiple running phases and kernel launching;
-* Workload imbalance when generating and rendering triangles.
+* Multiple running phases and kernel launching. The triangulation step contains multiple phases, each phase cannot start until the previous phase completes. In addition, some phases require multiple kernel launching, like generating Voronoi Graphs requires launching a kernel for every iteration. The synchronization prevents us from reaching perfect speedup. 
+* Workload imbalance when generating and rendering triangles. When generating triangles, the workload is imbalance among threads. Many threads that does not contain triangles return immediately, but they have to wait for the others who need to build and store their triangles.
 
 #### Factors that does not limit our speedup:
-* Data transfer. Only taking <1% running time.
-* Communication. There is no contention in our algorithm.
+* Data transfer. We keep the image data in the GPU memory all the time, and minimized the overhead for data transfer. We profiled the time for copying the image, and it only takes <1% running time.
+* Communication. There is no contention in our algorithm, so we avoid all overhead with locks.
 
 ### Time Consumption
 
@@ -146,7 +147,8 @@ As shown in the above form and graph, we tested our algorithm on 270p, 540p, 108
 As shown in the above graph, each part of the GPU computation time grows linearly with the picture size. The number of vertices doesn't influence the speed in our implementation.
 
 ![](pi.png)
-Above image shows a breakdown of running time on three pictures. DT computation accounts for the largest part for all of them. 
+
+The above image shows a breakdown of running time on three pictures. DT computation accounts for the largest part for all of them. 
 
 ![](time-vertices.png)
 The above image shows that the overall algorithm is not sensitive to number of edges. We tested on 1080p image and number of vertices ranges from 1x to 500x. But we do observe a decrease in render time (from 8.19 to 4.81) as number of vertices increase. The reason is as number of vertices increase, the number of triangles also increase. This will result in smaller average triangle size. As triangle size gets smaller, the search area of each thread gets smaller. And most importantly, as the seach area gets smaller, the number of "not in triangle" pixels searched by each thread decrease, which results in the speedup.  
@@ -155,10 +157,10 @@ The above image shows that the overall algorithm is not sensitive to number of e
 
 We further tried to test our converter on video. We load each frame of a video in sequential order and convert it to low-poly style image, then write it in memory. Because all frames in a video share the same resolution, many variables can be reused to further save some time. We tested it on a 720p video and a 1080p video respectively. The results are: 
 
-|         | ms / frame |  FPS  | 
-| ------- | ---------  | ----- | 
-| 720p    | 39.27      | 25.5  | 
-| 1080p   | 69.42      | 14.4  | 
+|         | ms / frame |  FPS  |
+| ------- | ---------  | ----- |
+| 720p    | 39.27      | 25.5  |
+| 1080p   | 69.42      | 14.4  |
 
 ### Failed Attempts and Ideas
 
