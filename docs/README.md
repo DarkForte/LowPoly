@@ -3,15 +3,13 @@
 
 at: [https://darkforte.github.io/LowPoly/](https://darkforte.github.io/LowPoly/)
 
-<!--[**Project Checkpoint**](https://darkforte.github.io/LowPoly/checkpoint/checkpoint.html)-->
-
 ## Summary
 
 We implemented a parallel low poly style image converter on CUDA. It accepts a picture of any size and converts it to a composition of many single colored triangles. We implemented the workflow of the converter on both CPU and CUDA and tested it on pictures and videos of different sizes. Experiments showed that our CUDA implementation can achieve ~50x speedup compared to the CPU version when the image is large. And our video version can achieve close to real-time speed (~25fps) on 720p video. 
 
 ## Background and Motivation
 
-![Introduction](final-low-poly-header.png)
+<div style="text-align:center"><img src ="final-low-poly-header.png" /></div>
 
 Low Poly Art is an art style that expresses objects with only a limited number of polygons. It was introduced in early-stage computer games when the computers were not so powerful as they are today. Nowadays, Low Poly Art becomes a popular style in modern design because it brings a unique abstract and retro-style aesthetic value. There are many converters that can convert an image to low poly style. They are very helpful for designers who need generating low poly style pictures, artists who are looking for new ideas, or ordinary people who do this just for fun.
 
@@ -29,7 +27,7 @@ All three parts can benefit from parallel execution on GPU. Among them, Delaunay
 
 2. Iteratively add points to the current triangle mesh. As shown in the following picture, adding a new point will form three new triangles. Then, it checks whether there is a triangle whose vertex is in the circumcircle of the new triangle (thus violating the Delaunay condition). If yes, then the common edge of the two triangles is flipped.
 
-   ![CPU workflow](delaunay-workflow.png)
+<div style="text-align:center"><img src ="delaunay-workflow.png" /></div>
 
 3. Keep adding the points. After adding all the points, removing the super triangle gives the DT of the points.
 
@@ -51,15 +49,15 @@ Here is an illustration of our workflow. It consists of several steps:
 4. Obtain DT mesh from the VG;
 5. Render the triangles and produce the final output.
 
-![](checkpoint/process.png)
+<div style="text-align:center"><img src ="checkpoint/process.png" /></div>
 
 We developed the whole system from scratch with C++ and CUDA on GHC machines with GTX 1080 GPU. We also used OpenCV for some helpers like CPU edge detection, reading and storing images/videos.
 
 ### Edge Detection
 
-To better preserve the texture in the original image, we need to find edges in the image. We implemented the Sobel edge detector in CUDA to find edges. It calculates the horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edginess score. To further increase efficiency, we used linear approximation $g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$ to replace the true gradient. The algorithm reads from the original image and writes its output to a new empty image. Because there is no contention, we could simply parallel the process by pixel. We didn't observe more speedup using shared memory for edge detection. The reason is that our filter size is small hence we only reuse pixel values a few times. This reuse can barely compensate the time of copying data into shared memory. 
+To better preserve the texture in the original image, we need to find edges in the image. We implemented the Sobel edge detector in CUDA to find edges. It calculates the horizontal gradient and verticle gradient for each pixel respectively. We only preserve the absolute value of the gradient to represent the edginess score. To further increase efficiency, we used linear approximation $$g_i=\frac{1}{2}|g_{i,x}|+\frac{1}{2}|g_{i,y}|$$ to replace the true gradient. The algorithm reads from the original image and writes its output to a new empty image. Because there is no contention, we could simply parallel the process by pixel. We didn't observe more speedup using shared memory for edge detection. The reason is that our filter size is small hence we only reuse pixel values a few times. This reuse can barely compensate the time of copying data into shared memory. 
 
-![](sobel.png)
+<div style="text-align:center"><img src ="sobel.png" /></div>
 
 ### Vertices Selection
 
@@ -69,9 +67,9 @@ Vertices selection takes image gradients (edge detection result) as input and ou
 
 For triangulation, we used an algorithm that is proposed by [Rong et al](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.632.1946&rep=rep1&type=pdf). The basic idea is, instead of directly computing DT, we first compute the [Voronoi Graph (VG)](https://en.wikipedia.org/wiki/Voronoi_diagram) of it on the picture. VG is a partition of a plane into regions according to their nearest points. VG is the dual problem of DT. If we obtained a VG (dashed lines), then connect the points of adjacent regions of the diagram gives us the DT (solid lines). 
 
-![VD and its corresponding DT](VDDT.gif)
+<div style="text-align:center"><img src ="VDDT.gif" /></div>
 
-Computing VG on a picture is done by the Jump-Flooding algorithm, which will mark each pixel with its nearest neighbor point. In each iteration with a step size $k$, a pixel $(x, y)$ will look at its eight neighbors $(x+i, y+j)$ where $i, j \in \{-k, 0, +k\}$, and try to find a closer point to it. The pseudo code for Jump-Flooding algorithm is:
+Computing VG on a picture is done by the Jump-Flooding algorithm, which will mark each pixel with its nearest neighbor point. In each iteration with a step size $$k$$ , a pixel $$(x, y)$$ will look at its eight neighbors $$(x+i, y+j)$$ where $$i, j \in \{-k, 0, +k\}$$, and try to find a closer point to it. The pseudo code for Jump-Flooding algorithm is:
 
 ```
 owner = {}
@@ -86,15 +84,15 @@ while step>=1:
 
 Here is an illustration for the steps for the Jump-Flooding algorithm on three points, with initial step = 4.
 
-![](jump-flooding.PNG)
+<div style="text-align:center"><img src ="jump-flooding.PNG" /></div>
 
-This algorithm is very GPU friendly since we can parallel the computation by each pixel. We can map each pixel to a thread on GPU, and each thread looks at the eight neighbors and update their owner points. Each step size requires a kernel launch, so there will be $\log{N}$ kernel launches where $N$ is the larger size of the picture. We can use double buffers to implement this algorithm since the updating process is fully synchronous. There is no contention in this algorithm. (In practice, we did not use double buffering. See side notes below for details.)
+This algorithm is very GPU friendly since we can parallel the computation by each pixel. We can map each pixel to a thread on GPU, and each thread looks at the eight neighbors and update their owner points. Each step size requires a kernel launch, so there will be $$\log{N}$$ kernel launches where $$N$$ is the larger size of the picture. We can use double buffers to implement this algorithm since the updating process is fully synchronous. There is no contention in this algorithm. (In practice, we did not use double buffering. See side notes below for details.)
 
 ### Generating Triangles
 
 After getting the VG, there is a neat trick to generate the triangle mesh in a fully parallel way. It turns out that the pixel map is sufficient to construct the triangles. Specifically, our task is to find 2x2 squares in the pixel map that have 3 or 4 different owners. A square of 3 owners suggests those 3 regions intersect here, so one triangle should be generated to connect the 3 regions. Similarly, a square of 4 owners suggests there should be two triangles to connect the 4 regions. Here is an illustration of this process. The number in the pixel refers to the number of owners in the 2x2 square.
 
-![](generating-triangles.PNG)
+<div style="text-align:center"><img src ="generating-triangles.PNG" /></div>
 
 Since we cannot dynamically add triangles in CUDA, constructing the triangle mesh is a three-step process:
 
@@ -127,8 +125,8 @@ We first tried to parallel by pixel and loop through triangles. However, the per
 
 ### Speedup
 
-![](results.png)
-![](speedup.png)
+<div style="text-align:center"><img src ="results.png" /></div>
+<div style="text-align:center"><img src ="speedup.png" /></div>
 
 As shown in the above form and graph, we tested our algorithm on 270p, 540p, 1080p, 2160p, 4320p, 8640p images respectively. The CPU version is compiled with `-O3` optimization. We used high precision timer `CycleTimer` as in HW2 to get our profiling data. All the values are in milliseconds. When the image is large, our Delaunay algorithm achieved ~50x speed up and the overall program achieved ~45 times speedup on computation time. If we take Cuda initialization time and disk I/O time into consideration, our algorithm achieved ~24.4 times speedup. We didn't observe a huge speed up on rendering. The reason is the triangles have different sizes (smallest is only 1 pixel) and shapes so that the workloads of different threads are heavily unbalanced.
 
@@ -142,15 +140,15 @@ As shown in the above form and graph, we tested our algorithm on 270p, 540p, 108
 
 ### Time Consumption
 
-![](timescale.png)
+<div style="text-align:center"><img src ="timescale.png" /></div>
 
 As shown in the above graph, each part of the GPU computation time grows linearly with the picture size. The number of vertices doesn't influence the speed in our implementation.
 
-![](pi.png)
+<div style="text-align:center"><img src ="pi.png" /></div>
 
 The above image shows a breakdown of running time in three pictures. DT computation accounts for the largest part for all of them. 
 
-![](time-vertices.png)
+<div style="text-align:center"><img src ="time-vertices.png" /></div>
 
 The above image shows that the overall algorithm is not sensitive to the number of edges. We tested on 1080p image and number of vertices ranges from 1x to 500x. But we do observe a decrease in render time (from 8.19 to 4.81) as the number of vertices increase. The reason is as the number of vertices increase, the number of triangles also increase. This will result in a smaller average triangle size. As triangle size gets smaller, the search area of each thread gets smaller. And most importantly, as the search area gets smaller, the number of "not in triangle" pixels searched by each thread decrease, which results in the speedup.  
 
@@ -158,10 +156,14 @@ The above image shows that the overall algorithm is not sensitive to the number 
 
 We further tried to test our converter on video. We load each frame of a video in sequential order and convert it to low-poly style image, then write it in memory. Because all frames in a video share the same resolution, many variables can be reused to further save some time. We tested it on a 720p video and a 1080p video respectively. The results are: 
 
+<center>
+
 |         | ms / frame |  FPS  |
 | ------- | ---------  | ----- |
 | 720p    | 39.27      | 25.5  |
 | 1080p   | 69.42      | 14.4  |
+
+</center>
 
 ### Failed Attempts and Ideas
 
