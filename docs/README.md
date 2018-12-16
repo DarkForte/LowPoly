@@ -158,14 +158,12 @@ The above image shows that the overall algorithm is not sensitive to the number 
 
 We further tried to test our converter on video. We load each frame of a video in sequential order and convert it to low-poly style image, then write it in memory. Because all frames in a video share the same resolution, many variables can be reused to further save some time. We tested it on a 720p video and a 1080p video respectively. The results are: 
 
-<center>
 
 |         | ms / frame |  FPS  |
 | ------- | ---------  | ----- |
 | 720p    | 39.27      | 25.5  |
 | 1080p   | 69.42      | 14.4  |
 
-</center>
 
 ### Failed Attempts and Ideas
 
