@@ -69,6 +69,8 @@ For triangulation, we used an algorithm that is proposed by [Rong et al](http://
 
 <div style="text-align:center"><img src ="VDDT.gif" /></div>
 
+(Image from: [Fortune’s algorithm and implementation](http://blog.ivank.net/fortunes-algorithm-and-implementation.html))
+
 Computing VG on a picture is done by the Jump-Flooding algorithm, which will mark each pixel with its nearest neighbor point. In each iteration with a step size $$k$$ , a pixel $$(x, y)$$ will look at its eight neighbors $$(x+i, y+j)$$ where $$i, j \in \{-k, 0, +k\}$$, and try to find a closer point to it. The pseudo code for Jump-Flooding algorithm is:
 
 ```
